@@ -132,29 +132,49 @@ export const QuizMemoryModal: React.FC<QuizMemoryModalProps> = ({
     setIsFinished(false);
   };
 
+  // Escape key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !article || questions.length === 0) return null;
 
   const currentQ = questions[currentIndex];
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       <div
-        className={`w-full max-w-xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-slate-900 border-amber-500/30 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/40 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+        <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-slate-700/40 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
               <Brain className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2">
-                <span>Défi Mémorisation Active (Anki)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold font-mono">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2 flex-wrap">
+                <span className="truncate">Défi Mémorisation Active</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold font-mono shrink-0">
                   +25 pts
                 </span>
               </h3>
@@ -163,11 +183,16 @@ export const QuizMemoryModal: React.FC<QuizMemoryModalProps> = ({
               </p>
             </div>
           </div>
+          {/* Bouton Quitter ultra-visible avec croix */}
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            type="button"
+            className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
+            title="Quitter le Quiz (Échap)"
+            aria-label="Quitter le Quiz"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 stroke-[3]" />
+            <span className="font-extrabold text-xs">Quitter</span>
           </button>
         </div>
 
@@ -280,23 +305,34 @@ export const QuizMemoryModal: React.FC<QuizMemoryModalProps> = ({
         {/* Footer actions */}
         <div className="p-3.5 sm:p-4 border-t border-slate-700/40 flex items-center justify-between gap-3 bg-black/20 shrink-0">
           {!isFinished ? (
-            !isSubmitted ? (
+            <div className="flex items-center gap-2 w-full">
               <button
-                onClick={handleValidateAnswer}
-                disabled={selectedOption === null}
-                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm disabled:opacity-40 transition-all cursor-pointer shadow-md"
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                title="Quitter le quiz (Échap)"
               >
-                Valider ma réponse
+                <X className="w-4 h-4 stroke-[2.5]" />
+                <span className="hidden xs:inline">Quitter</span>
               </button>
-            ) : (
-              <button
-                onClick={handleNextQuestion}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
-              >
-                <span>{currentIndex < questions.length - 1 ? "Question suivante" : "Voir mon score final"}</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )
+              {!isSubmitted ? (
+                <button
+                  onClick={handleValidateAnswer}
+                  disabled={selectedOption === null}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm disabled:opacity-40 transition-all cursor-pointer shadow-md"
+                >
+                  Valider ma réponse
+                </button>
+              ) : (
+                <button
+                  onClick={handleNextQuestion}
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+                >
+                  <span>{currentIndex < questions.length - 1 ? "Question suivante" : "Voir mon score final"}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           ) : (
             <div className="flex items-center gap-2 w-full">
               <button
@@ -308,9 +344,10 @@ export const QuizMemoryModal: React.FC<QuizMemoryModalProps> = ({
               </button>
               <button
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
               >
-                Fermer & Continuer ma lecture
+                <X className="w-4 h-4 stroke-[2.5]" />
+                <span>Quitter le Quiz</span>
               </button>
             </div>
           )}

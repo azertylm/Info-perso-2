@@ -9056,32 +9056,45 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
 
       {/* 8. Modal Toutes les Propositions & Outils IA de l'Article */}
       {showAllProposalsModal && selectedArticle && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-fade-in">
-          <div className={`w-full max-w-2xl max-h-[85dvh] sm:max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAllProposalsModal(false);
+            }
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-fade-in cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-2xl max-h-[85dvh] sm:max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden cursor-default ${
             isDark ? "bg-zinc-950 border-zinc-800 text-zinc-100" : "bg-white border-zinc-200 text-zinc-900"
           }`}>
             {/* Header */}
-            <div className={`p-4 border-b flex items-center justify-between shrink-0 ${
+            <div className={`p-3.5 sm:p-4 border-b flex items-center justify-between shrink-0 gap-2 ${
               isDark ? "border-zinc-800 bg-zinc-900/60" : "border-zinc-200 bg-zinc-50"
             }`}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold shrink-0">
                   <LayoutGrid className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-sm sm:text-base flex items-center gap-2">
-                    Propositions & Outils d'Analyse
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold">10 outils</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                    <span>Propositions & Outils d'Analyse</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-semibold shrink-0">10 outils</span>
                   </h3>
                   <p className="text-xs opacity-60 line-clamp-1 max-w-sm sm:max-w-md">{selectedArticle.title}</p>
                 </div>
               </div>
+              {/* Bouton Quitter ultra-visible avec croix */}
               <button
                 onClick={() => setShowAllProposalsModal(false)}
-                className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer transition-colors"
-                title="Fermer"
+                type="button"
+                className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
+                title="Quitter les propositions (Échap)"
+                aria-label="Quitter"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 stroke-[3]" />
+                <span className="font-extrabold text-xs">Quitter</span>
               </button>
             </div>
 

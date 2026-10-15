@@ -228,29 +228,49 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
     }
   };
 
+  // Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       <div
-        className={`w-full max-w-3xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-3xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-gradient-to-b from-slate-900 via-slate-950 to-black border-cyan-500/30 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/40 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center">
+        <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-slate-700/40 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
               <Scale className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2 flex-wrap">
-                <span>Dossier de Presse Croisé : Nuances & Biais</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getPolarizationColor(analysis.polarizationLevel)}`}>
+                <span className="truncate">Nuances & Biais Croisés</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold shrink-0 ${getPolarizationColor(analysis.polarizationLevel)}`}>
                   Polarisation : {analysis.polarizationLevel}
                 </span>
                 {article.score_bruit && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold shrink-0 ${
                     article.score_bruit <= 2 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
                     article.score_bruit === 3 ? "bg-amber-500/20 text-amber-400 border-amber-500/30" :
                     "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"
@@ -262,16 +282,21 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
               <p className="text-xs opacity-75 truncate max-w-md">
                 {article.title}
               </p>
-              <p className="text-[11px] font-sans opacity-85 text-cyan-400 dark:text-cyan-300">
+              <p className="text-[11px] font-sans opacity-85 text-cyan-400 dark:text-cyan-300 truncate">
                 Source : {article.source_mention || `${article.source} (Attribution légale d'origine vérifiée)`}
               </p>
             </div>
           </div>
+          {/* Bouton Quitter ultra-visible avec croix */}
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            type="button"
+            className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
+            title="Quitter la vue Nuances (Échap)"
+            aria-label="Quitter la vue Nuances"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 stroke-[3]" />
+            <span className="font-extrabold text-xs">Quitter</span>
           </button>
         </div>
 
@@ -437,9 +462,11 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
 
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-700/60 hover:bg-slate-800/60 cursor-pointer"
+            type="button"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            Fermer
+            <X className="w-4 h-4 stroke-[2.5]" />
+            <span>Quitter</span>
           </button>
         </div>
       </div>

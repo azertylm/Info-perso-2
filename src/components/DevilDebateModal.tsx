@@ -156,27 +156,47 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
     }
   };
 
+  // Escape key to close modal immediately
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !article) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       <div
-        className={`w-full max-w-2xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-2xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-slate-900 border-rose-500/30 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/40 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shadow-inner">
+        <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-slate-700/40 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shadow-inner shrink-0">
               <Flame className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2">
-                <span>L'Avocat du Diable : Test de Solidité</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-mono font-bold">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2 flex-wrap">
+                <span className="truncate">L'Avocat du Diable</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-mono font-bold shrink-0">
                   Dialectique
                 </span>
               </h3>
@@ -185,11 +205,16 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
               </p>
             </div>
           </div>
+          {/* Bouton Quitter ultra-visible avec croix */}
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            type="button"
+            className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
+            title="Quitter l'Avocat du Diable (Échap)"
+            aria-label="Quitter l'Avocat du Diable"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 stroke-[3]" />
+            <span className="font-extrabold text-xs">Quitter</span>
           </button>
         </div>
 
@@ -282,8 +307,17 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
           ))}
         </div>
 
-        {/* Input Bar */}
+        {/* Input Bar & Exit */}
         <div className="p-3 sm:p-4 border-t border-slate-700/40 flex items-center gap-2 bg-black/20 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-2 rounded-xl border border-rose-500/50 bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+            title="Quitter l'Avocat du Diable"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
+            <span className="hidden xs:inline">Quitter</span>
+          </button>
           <input
             type="text"
             placeholder="Posez une objection ou défendez votre point de vue..."
@@ -297,7 +331,7 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
           <button
             onClick={() => handleSendMessage(inputQuery)}
             disabled={!inputQuery.trim() || isLoading}
-            className="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-40 transition-all cursor-pointer shadow-md shadow-rose-600/30"
+            className="p-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-40 transition-all cursor-pointer shadow-md shadow-rose-600/30 shrink-0"
             title="Envoyer l'argument"
           >
             <Send className="w-4 h-4" />

@@ -981,14 +981,34 @@ Format JSON requis :
     onClose();
   };
 
+  // Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const currentChapter = chapters[currentChapterIndex];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer"
+    >
       <div
-        className={`w-full max-w-3xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-3xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-zinc-950 border-zinc-800 text-white"
             : "bg-white border-zinc-300 text-zinc-900"
@@ -996,12 +1016,12 @@ Format JSON requis :
       >
         {/* Ligne 1 unique ultra-compacte : Titre, 5 dossiers, bouton régénérer 5 et contrôles */}
         <div
-          className={`flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 ${
+          className={`flex items-center justify-between px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0 gap-2 ${
             isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-50 border-zinc-200"
           }`}
         >
           {/* Titre & Statut */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div
               className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 border ${
                 isDark
@@ -1012,8 +1032,8 @@ Format JSON requis :
               <Radio className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPlaying ? "animate-pulse" : "opacity-80"}`} />
             </div>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-bold text-xs sm:text-sm tracking-tight text-zinc-900 dark:text-white truncate">
                   Flash 90 secondes
                 </h3>
@@ -1043,7 +1063,7 @@ Format JSON requis :
               title="Régénérer immédiatement 5 nouveaux dossiers selon vos centres d'intérêt"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Régénérer (5)</span>
+              <span className="hidden sm:inline">Régénérer (5)</span>
             </button>
 
             {/* Régénération IA compacte */}
@@ -1097,17 +1117,16 @@ Format JSON requis :
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
 
-            {/* Fermer */}
+            {/* Bouton Quitter ultra-visible avec croix */}
             <button
               onClick={handleClose}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                isDark
-                  ? "text-zinc-400 hover:text-white hover:bg-zinc-850"
-                  : "text-zinc-500 hover:text-black hover:bg-zinc-150"
-              }`}
-              title="Fermer"
+              type="button"
+              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
+              title="Quitter le Flash 90s (Échap)"
+              aria-label="Quitter le Flash 90s"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 stroke-[3]" />
+              <span className="font-extrabold text-xs">Quitter</span>
             </button>
           </div>
         </div>
@@ -1492,13 +1511,12 @@ Format JSON requis :
 
             <button
               onClick={handleClose}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                isDark
-                  ? "border-zinc-750 hover:bg-zinc-850 text-zinc-300"
-                  : "border-zinc-300 hover:bg-zinc-200 text-zinc-700"
-              }`}
+              type="button"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Quitter le Flash 90s (Échap)"
             >
-              Fermer
+              <X className="w-4 h-4 stroke-[2.5]" />
+              <span>Quitter</span>
             </button>
           </div>
         </div>
@@ -1532,10 +1550,11 @@ Format JSON requis :
 
                 <button
                   onClick={() => setIsTeleprompterOpen(false)}
-                  className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-all cursor-pointer"
-                  title="Fermer le prompteur"
+                  className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white border border-rose-500 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                  title="Quitter le prompteur"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4 stroke-[2.5]" />
+                  <span>Quitter</span>
                 </button>
               </div>
             </div>

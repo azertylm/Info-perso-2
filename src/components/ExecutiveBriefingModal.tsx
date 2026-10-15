@@ -73,25 +73,45 @@ Mettre sous surveillance active le mot-clé "${article.tags[0] || article.catego
     window.print();
   };
 
+  // Escape key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       <div
-        className={`w-full max-w-3xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-3xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-slate-900 border-emerald-500/30 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/40 print:hidden shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+        <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-slate-700/40 print:hidden shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2">
-                <span>Executive Memo : Fiche de Décision 1-Page</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold font-mono">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2 flex-wrap">
+                <span className="truncate">Executive Memo : Décision 1-Page</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold font-mono shrink-0">
                   Synthèse Pro
                 </span>
               </h3>
@@ -100,11 +120,16 @@ Mettre sous surveillance active le mot-clé "${article.tags[0] || article.catego
               </p>
             </div>
           </div>
+          {/* Bouton Quitter ultra-visible avec croix */}
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            type="button"
+            className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
+            title="Quitter la Fiche Exécutive (Échap)"
+            aria-label="Quitter la Fiche Exécutive"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 stroke-[3]" />
+            <span className="font-extrabold text-xs">Quitter</span>
           </button>
         </div>
 
@@ -235,9 +260,11 @@ Mettre sous surveillance active le mot-clé "${article.tags[0] || article.catego
 
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 hover:bg-slate-800 cursor-pointer"
+            type="button"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            Fermer
+            <X className="w-4 h-4 stroke-[2.5]" />
+            <span>Quitter</span>
           </button>
         </div>
       </div>
