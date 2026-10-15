@@ -165,7 +165,38 @@ class RadioAudioEngine {
 const radioAudio = new RadioAudioEngine();
 
 /**
+ * Formatage graphique distinct des marqueurs vocaux entre crochets ([Pause], [Ton mesuré], etc.)
+ */
+export function renderFormattedAudioScript(text: string, isDark: boolean) {
+  if (!text) return null;
+  const parts = text.split(/(\[[^\]]+\])/g);
+  return (
+    <span className="leading-relaxed">
+      {parts.map((segment, idx) => {
+        if (segment.startsWith("[") && segment.endsWith("]")) {
+          return (
+            <span
+              key={idx}
+              className={`inline-block px-1.5 py-0.5 mx-0.5 my-0.5 rounded text-[11px] font-mono italic select-none transition-colors ${
+                isDark
+                  ? "bg-zinc-800/90 text-zinc-400 border border-zinc-700/60"
+                  : "bg-zinc-100 text-zinc-500 border border-zinc-300"
+              }`}
+              title="Marqueur d'intonation de la chronique"
+            >
+              {segment}
+            </span>
+          );
+        }
+        return <span key={idx}>{segment}</span>;
+      })}
+    </span>
+  );
+}
+
+/**
  * Règle stricte des 3 phrases par dossier (Solution 3) & Attaque In Media Res (Solution 2)
+ * Priorité absolue au script_podcast oralisé de 90s issu du pipeline éditorial
  */
 function buildThreeSentenceBrief(
   art: NewsArticle,
@@ -177,6 +208,35 @@ function buildThreeSentenceBrief(
   displayScript: string;
   keyTakeaway: string;
 } {
+  // 1. Priorité au script_podcast oralisé de 90s
+  if (art.script_podcast && art.script_podcast.trim().length > 20) {
+    const raw = art.script_podcast.trim();
+    const textToSpeak = raw.replace(/\[[^\]]+\]/g, "").replace(/\s+/g, " ").trim();
+    const takeaway = (art.faits_verifies && art.faits_verifies[0]) || art.debat_nuance?.dominante || art.title;
+
+    return {
+      title: `${index + 1}. ${art.title}`,
+      textToSpeak,
+      displayScript: raw,
+      keyTakeaway: takeaway
+    };
+  }
+
+  // 2. Priorité aux faits vérifiés
+  if (art.faits_verifies && art.faits_verifies.length >= 2) {
+    const f1 = art.faits_verifies[0];
+    const f2 = art.faits_verifies[1];
+    const f3 = art.faits_verifies[2] || `Les faits vérifiés confirment la portée de ce dossier.`;
+    const textToSpeak = `${f1} ${f2} ${f3}`;
+    const displayScript = `⚡ **1. Fait brut :** ${f1}\n\n📊 **2. Donnée clé :** ${f2}\n\n🎯 **3. Conséquence directe :** ${f3}`;
+    return {
+      title: `${index + 1}. ${art.title}`,
+      textToSpeak,
+      displayScript,
+      keyTakeaway: f1
+    };
+  }
+
   const cleanSummary = purgeFillerWords(art.summary || art.content || "");
   const sentences = cleanSummary
     .split(/(?<=[.!?])\s+/)
@@ -1178,7 +1238,7 @@ Format JSON requis :
               </h4>
             </div>
 
-            {/* Texte intégral du dossier : Noir et Blanc haute lisibilité */}
+            {/* Texte intégral du dossier : Noir et Blanc haute lisibilité avec formatage atténué des marqueurs */}
             <div
               className={`w-full p-3.5 sm:p-4 rounded-xl border text-xs sm:text-sm leading-relaxed text-left max-h-44 overflow-y-auto scrollbar transition-all ${
                 isDark
@@ -1187,9 +1247,30 @@ Format JSON requis :
               }`}
             >
               <div className="whitespace-pre-line font-sans">
-                {currentChapter?.displayScript || currentChapter?.textToSpeak}
+                {renderFormattedAudioScript(currentChapter?.displayScript || currentChapter?.textToSpeak || "", isDark)}
               </div>
             </div>
+
+            {/* Débat Nuancé & Question de discernement associée au dossier */}
+            {currentChapter?.sourceArticle?.debat_nuance && (
+              <div className={`w-full p-3 rounded-xl border text-left text-xs ${
+                isDark ? "bg-zinc-950/80 border-cyan-900/40 text-zinc-200" : "bg-cyan-50/50 border-cyan-200 text-zinc-900"
+              }`}>
+                <div className="flex items-center gap-1.5 font-bold text-[11px] text-cyan-400 mb-1">
+                  <span>⚖️ Volet Débat & Discernement :</span>
+                </div>
+                {currentChapter.sourceArticle.debat_nuance.dominante && (
+                  <p className="text-[11px] opacity-90 mb-1">
+                    <strong className="text-cyan-300">Thèse :</strong> {currentChapter.sourceArticle.debat_nuance.dominante}
+                  </p>
+                )}
+                {currentChapter.sourceArticle.debat_nuance.question_discernement && (
+                  <p className="italic text-[11px] text-cyan-200">
+                    « {currentChapter.sourceArticle.debat_nuance.question_discernement} »
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Lien vers l'article complet */}
             {currentChapter?.sourceArticle && onOpenArticle && (
@@ -1489,9 +1570,9 @@ Format JSON requis :
                       {ch.title}
                     </h3>
 
-                    <p className="text-sm sm:text-base font-normal leading-relaxed text-zinc-200">
-                      {ch.textToSpeak}
-                    </p>
+                    <div className="text-sm sm:text-base font-normal leading-relaxed text-zinc-200 whitespace-pre-line">
+                      {renderFormattedAudioScript(ch.displayScript || ch.textToSpeak, true)}
+                    </div>
                   </div>
                 );
               })}

@@ -83,6 +83,12 @@ export interface ArticleStrategicAnalysis {
   nextMilestone?: string;
 }
 
+export interface DebatNuance {
+  dominante: string;
+  angles_morts: string[];
+  question_discernement: string;
+}
+
 export interface NewsArticle {
   id: number;
   title: string;
@@ -108,11 +114,46 @@ export interface NewsArticle {
   isLatestGeneration?: boolean;
   rawRssLink?: string;
 
+  // Pipeline de traitement éditorial complet (« Trier l'information avant de la subir »)
+  source_mention?: string;
+  score_bruit?: number;
+  faits_verifies?: string[];
+  debat_nuance?: DebatNuance;
+  script_podcast?: string;
+
   // Enrichissements informatifs directs
   keyFigures?: ArticleKeyFigure[];
   keyTakeaways?: string[];
   strategicAnalysis?: ArticleStrategicAnalysis;
 }
+
+/**
+ * Interface stricte d'un article traité par le pipeline éditorial
+ */
+export interface EditorialArticle extends NewsArticle {
+  source_mention: string;
+  score_bruit: number;
+  faits_verifies: string[];
+  debat_nuance: DebatNuance;
+  script_podcast: string;
+}
+
+/**
+ * Sortie structurée JSON du pipeline éditorial complet
+ */
+export interface EditorialPipelineOutput {
+  source_mention: string;
+  score_bruit: number;
+  faits_verifies: string[];
+  debat_nuance: DebatNuance;
+  script_podcast: string;
+  titre_editorial?: string;
+  chapeau?: string;
+  temps_lecture_estime?: string;
+}
+
+export type EditorialPipelineResult = EditorialPipelineOutput;
+export type ArticleDebatNuance = DebatNuance;
 
 export type DiscoveryMode = "focus" | "balanced" | "serendipity";
 

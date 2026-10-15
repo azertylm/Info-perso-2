@@ -3612,6 +3612,48 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     onNotify(isFollowed ? `Étoile retirée pour #${clean}` : `⭐ Sujet #${clean} ajouté à votre Radar !`);
   };
 
+  const handleListenArticleFlash = (e: React.MouseEvent, art: NewsArticle) => {
+    e.stopPropagation();
+    setSelectedArticle(art);
+    setShowPodcastModal(true);
+    onNotify(`🎙️ Lancement du flash 90s : « ${art.title.slice(0, 40)}... »`);
+  };
+
+  const renderScoreBruitBadge = (scoreBruit?: number) => {
+    const score = typeof scoreBruit === "number" && !isNaN(scoreBruit) ? Math.min(5, Math.max(1, Math.round(scoreBruit))) : 2;
+    if (score <= 2) {
+      return (
+        <span
+          className="px-2 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shadow-2xs shrink-0 select-none"
+          title={`Indice de bruit ${score}/5 : Information de fond, temps long et portée structurelle avérée`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Fond ({score}/5)</span>
+        </span>
+      );
+    } else if (score === 3) {
+      return (
+        <span
+          className="px-2 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-2xs shrink-0 select-none"
+          title={`Indice de bruit ${score}/5 : Actualité conjoncturelle modérée`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span>Modéré ({score}/5)</span>
+        </span>
+      );
+    } else {
+      return (
+        <span
+          className="px-2 py-0.5 text-[9px] sm:text-[10px] font-medium rounded-md bg-zinc-500/20 text-zinc-400 border border-zinc-600/30 flex items-center gap-1 shadow-2xs shrink-0 select-none"
+          title={`Indice de bruit ${score}/5 : Emballement médiatique éphémère ou polémique sans portée structurelle`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+          <span>Bruit / Éphémère ({score}/5)</span>
+        </span>
+      );
+    }
+  };
+
   const handleUnhideAllArticles = () => {
     setHiddenArticleIds([]);
     localStorage.removeItem("infoperso_hidden_article_ids");
@@ -5971,7 +6013,18 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                               }`}>
                                 ★ {art.score}%
                               </span>
+
+                              {/* Badge Indice de Bruit Médiatique (1 à 5) */}
+                              {renderScoreBruitBadge(art.score_bruit)}
                             </div>
+                          </div>
+
+                          {/* Mention légale claire de la source originale */}
+                          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] opacity-85 truncate text-slate-400 dark:text-slate-400 font-sans mb-1.5">
+                            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 font-medium">Source :</span>
+                            <span className="font-semibold text-zinc-300 dark:text-zinc-200 truncate" title={art.source_mention || `${art.source} (Attribution légale d'origine vérifiée)`}>
+                              {art.source_mention || `${art.source} (Attribution légale d'origine vérifiée)`}
+                            </span>
                           </div>
 
                           {/* Illustration Photo (Mode "En photo") - Ultra Compact & Discret */}
@@ -6049,6 +6102,16 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                           </div>
 
                           <div className="flex items-center gap-2">
+                            {/* Bouton d'action rapide : Écouter le flash (90s) */}
+                            <button
+                              onClick={(e) => handleListenArticleFlash(e, art)}
+                              className="px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-300 hover:text-white border border-indigo-500/40 transition-all cursor-pointer flex items-center gap-1 shrink-0 shadow-2xs active:scale-95"
+                              title="Écouter le flash audio oralisé (90s) de cet article"
+                            >
+                              <Volume2 className="w-3 h-3 text-indigo-400" />
+                              <span>Écouter le flash (90s)</span>
+                            </button>
+
                             {/* PDF Export Button with photo */}
                             <button
                               onClick={(e) => {
@@ -6337,7 +6400,18 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                               }`}>
                                 {art.score}% Match
                               </span>
+
+                              {/* Badge Indice de Bruit Médiatique (1 à 5) */}
+                              {renderScoreBruitBadge(art.score_bruit)}
                             </div>
+                          </div>
+
+                          {/* Mention légale claire de la source originale */}
+                          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] opacity-85 truncate text-slate-400 dark:text-slate-400 font-sans mb-1.5">
+                            <span className="text-zinc-500 dark:text-zinc-400 shrink-0 font-medium">Source :</span>
+                            <span className="font-semibold text-zinc-300 dark:text-zinc-200 truncate" title={art.source_mention || `${art.source} (Attribution légale d'origine vérifiée)`}>
+                              {art.source_mention || `${art.source} (Attribution légale d'origine vérifiée)`}
+                            </span>
                           </div>
 
                           {/* Illustration Photo (Mode "En photo") - Ultra Compact & Discret */}
@@ -6415,6 +6489,16 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                           </div>
 
                           <div className="flex items-center gap-2">
+                            {/* Bouton d'action rapide : Écouter le flash (90s) */}
+                            <button
+                              onClick={(e) => handleListenArticleFlash(e, art)}
+                              className="px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-300 hover:text-white border border-indigo-500/40 transition-all cursor-pointer flex items-center gap-1 shrink-0 shadow-2xs active:scale-95"
+                              title="Écouter le flash audio oralisé (90s) de cet article"
+                            >
+                              <Volume2 className="w-3 h-3 text-indigo-400" />
+                              <span>Écouter le flash (90s)</span>
+                            </button>
+
                             {/* PDF Export Button with photo */}
                             <button
                               onClick={(e) => {
@@ -7096,6 +7180,133 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* PIPELINE ÉDITORIAL COMPLET (« Trier l'information avant de la subir ») */}
+                  {(selectedArticle.faits_verifies || selectedArticle.debat_nuance || selectedArticle.script_podcast || selectedArticle.source_mention) && (
+                    <div className={`p-3.5 sm:p-4 rounded-xl border space-y-3 transition-all ${
+                      isDark ? "bg-slate-900/90 border-indigo-900/50 text-slate-200" : "bg-white border-indigo-200 text-slate-900 shadow-xs"
+                    }`}>
+                      {/* Header Pipeline */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 border-indigo-500/20">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 rounded-md bg-indigo-600 text-white shadow-xs">
+                            <Radio className="w-3.5 h-3.5" />
+                          </span>
+                          <div>
+                            <div className="text-xs font-black tracking-wide uppercase text-indigo-500 dark:text-indigo-400">
+                              Intelligence Éditoriale • Trier l'information avant de la subir
+                            </div>
+                            {selectedArticle.source_mention && (
+                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                                Source & attribution : <span className="font-semibold text-zinc-700 dark:text-zinc-300">{selectedArticle.source_mention}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Badge Indice de Bruit Médiatique */}
+                        {typeof selectedArticle.score_bruit === "number" && (
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                            selectedArticle.score_bruit <= 2
+                              ? isDark ? "bg-emerald-950/40 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                              : selectedArticle.score_bruit === 3
+                              ? isDark ? "bg-amber-950/40 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-300"
+                              : isDark ? "bg-rose-950/40 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-300"
+                          }`}>
+                            <span>Indice de bruit : {selectedArticle.score_bruit}/5</span>
+                            <span className="opacity-75 font-normal text-[10px]">
+                              {selectedArticle.score_bruit <= 2 ? "• Information de fond" : selectedArticle.score_bruit === 3 ? "• Bruit modéré" : "• Emballement éphémère"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 1. Faits Vérifiés */}
+                      {selectedArticle.faits_verifies && selectedArticle.faits_verifies.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Faits Vérifiés & Épurés (Réécriture intégrale)</span>
+                          </div>
+                          <ul className="space-y-1">
+                            {selectedArticle.faits_verifies.map((fait, fIdx) => (
+                              <li key={fIdx} className="text-xs leading-relaxed flex items-start gap-2 pl-1">
+                                <span className="text-emerald-500 font-bold mt-0.5">•</span>
+                                <span>{fait}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* 2. Débat Contradictoire & Angles Morts */}
+                      {selectedArticle.debat_nuance && (
+                        <div className={`p-2.5 rounded-lg border space-y-2 text-xs ${
+                          isDark ? "bg-zinc-800/60 border-zinc-700/60" : "bg-slate-50 border-slate-200"
+                        }`}>
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5">
+                            <Scale className="w-3.5 h-3.5" />
+                            <span>Débat Contradictoire & Angles Morts</span>
+                          </div>
+                          {selectedArticle.debat_nuance.dominante && (
+                            <div>
+                              <span className="font-bold text-[10px] uppercase opacity-70">Thèse dominante : </span>
+                              <span className="italic">{selectedArticle.debat_nuance.dominante}</span>
+                            </div>
+                          )}
+                          {selectedArticle.debat_nuance.angles_morts && selectedArticle.debat_nuance.angles_morts.length > 0 && (
+                            <div className="space-y-1">
+                              <span className="font-bold text-[10px] uppercase opacity-70">Angles morts & données omises :</span>
+                              <ul className="space-y-0.5 pl-1">
+                                {selectedArticle.debat_nuance.angles_morts.map((am, amIdx) => (
+                                  <li key={amIdx} className="flex items-start gap-1.5 leading-snug">
+                                    <span className="text-amber-500 font-bold shrink-0 mt-0.5">⚠️</span>
+                                    <span>{am}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {selectedArticle.debat_nuance.question_discernement && (
+                            <div className={`p-2 rounded border text-xs font-medium ${
+                              isDark ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-200" : "bg-indigo-50/80 border-indigo-200 text-indigo-900"
+                            }`}>
+                              <span className="font-bold block text-[10px] uppercase tracking-wider text-indigo-400">Question de discernement :</span>
+                              « {selectedArticle.debat_nuance.question_discernement} »
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 3. Chronique Audio 90s */}
+                      {selectedArticle.script_podcast && (
+                        <div className={`p-2.5 rounded-lg border space-y-2 text-xs ${
+                          isDark ? "bg-zinc-800/40 border-zinc-700/40" : "bg-amber-50/50 border-amber-200/80"
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                              <Volume2 className="w-3.5 h-3.5" />
+                              <span>Chronique Audio Oralisée (90 secondes)</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(selectedArticle.script_podcast || "");
+                                if (onNotify) onNotify("Script de la chronique audio copié !");
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 hover:border-indigo-400"
+                              title="Copier le script audio"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>Copier</span>
+                            </button>
+                          </div>
+                          <p className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap opacity-90">
+                            {selectedArticle.script_podcast}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
