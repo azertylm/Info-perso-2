@@ -1,0 +1,8 @@
+{
+  "name": "Info perso 2",
+  "description": "Filtre d\u0027actualités intelligent sans pub sans pollution d\u0027actualité néfaste",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

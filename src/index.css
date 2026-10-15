@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Barlow+Condensed:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
+}
+
+html.dark {
+  color-scheme: dark;
+  background-color: #000000;
+  color: #ffffff;
+}
+
+html:not(.dark) {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Overrides to increase all font sizes and force bold ONLY when Mode Facile (easy-mode) is active */
+.easy-mode {
+  font-size: 125% !important;
+
+  body, button, input, select, textarea, div, span, p, h1, h2, h3, h4, h5, h6, a {
+    font-weight: 700 !important;
+  }
+
+  /* Force all font weight utilities to bold */
+  .font-thin, .font-extralight, .font-light, .font-normal, .font-medium, .font-semibold, .font-bold, .font-extrabold, .font-black {
+    font-weight: 700 !important;
+  }
+
+  .text-\[8px\] {
+    font-size: 10px !important;
+  }
+  .text-\[9px\] {
+    font-size: 11px !important;
+  }
+  .text-\[10px\] {
+    font-size: 12px !important;
+  }
+  .text-\[11px\] {
+    font-size: 13px !important;
+  }
+  .text-xs {
+    font-size: 13.5px !important;
+  }
+  .text-sm {
+    font-size: 15.5px !important;
+  }
+  .text-base {
+    font-size: 18px !important;
+  }
+  .text-lg {
+    font-size: 21px !important;
+  }
+  .text-xl {
+    font-size: 24px !important;
+  }
+  .text-2xl {
+    font-size: 28px !important;
+  }
+  .text-3xl {
+    font-size: 34px !important;
+  }
+  .text-4xl {
+    font-size: 40px !important;
+  }
+
+  /* Keep text inputs comfortable without inflating buttons and toolbars */
+  input[type="text"], input[type="search"] {
+    min-height: 40px !important;
+  }
+
+  /* Prevent excessive vertical footprint for start page controls, chips, and toolbars in Mode Big */
+  .home-toolbar button,
+  .home-toolbar a,
+  .home-action-btn,
+  .reader-actions-footer button,
+  .reader-actions-footer a,
+  .reader-compact-strip button,
+  .reader-compact-strip a,
+  .youtube-filter-chip,
+  .youtube-open-btn,
+  .compact-action-btn,
+  .in-article-chip,
+  .editorial-mixer-bar button {
+    min-height: 32px !important;
+    max-height: 38px !important;
+    font-size: 12px !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+    padding-left: 0.45rem !important;
+    padding-right: 0.45rem !important;
+  }
+}
+
+/* THIRD BIG MODE: Mode Big XL / Super Big (+35% extra scale over Mode Big) */
+.easy-mode-max {
+  font-size: 168.75% !important;
+
+  body, button, input, select, textarea, div, span, p, h1, h2, h3, h4, h5, h6, a {
+    font-weight: 750 !important;
+    letter-spacing: 0.01em;
+  }
+
+  .font-thin, .font-extralight, .font-light, .font-normal, .font-medium, .font-semibold, .font-bold, .font-extrabold, .font-black {
+    font-weight: 750 !important;
+  }
+
+  .text-\[8px\] {
+    font-size: 13.5px !important;
+  }
+  .text-\[9px\] {
+    font-size: 15px !important;
+  }
+  .text-\[10px\] {
+    font-size: 16.2px !important;
+  }
+  .text-\[11px\] {
+    font-size: 17.5px !important;
+  }
+  .text-xs {
+    font-size: 18.2px !important;
+  }
+  .text-sm {
+    font-size: 21px !important;
+  }
+  .text-base {
+    font-size: 24.3px !important;
+  }
+  .text-lg {
+    font-size: 28.35px !important;
+  }
+  .text-xl {
+    font-size: 32.4px !important;
+  }
+  .text-2xl {
+    font-size: 37.8px !important;
+  }
+  .text-3xl {
+    font-size: 45.9px !important;
+  }
+  .text-4xl {
+    font-size: 54px !important;
+  }
+
+  /* Comfortable inputs in Big XL */
+  input[type="text"], input[type="search"] {
+    min-height: 48px !important;
+    font-size: 18px !important;
+  }
+
+  .home-toolbar button,
+  .home-toolbar a,
+  .home-action-btn,
+  .reader-actions-footer button,
+  .reader-actions-footer a,
+  .reader-compact-strip button,
+  .reader-compact-strip a,
+  .youtube-filter-chip,
+  .youtube-open-btn,
+  .compact-action-btn,
+  .in-article-chip,
+  .editorial-mixer-bar button {
+    min-height: 38px !important;
+    max-height: 48px !important;
+    font-size: 15px !important;
+    line-height: 1.25 !important;
+    white-space: nowrap !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+
+  /* Optimisations spécifiques au Mode Big 2 (lisibilité parfaite du flux et des réglages) */
+  .feed-articles-container {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-modal-container {
+    max-height: 94vh !important;
+    width: 96vw !important;
+    max-width: 960px !important;
+  }
+
+  .settings-tab-btn {
+    font-size: 14px !important;
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Custom modern scrollbar stylings */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* === ENHANCEMENTS FOR FOLDABLE & DUAL-SCREEN SMARTPHONES === */
+/* W3C Foldables & Dual Screen Segment Media Queries (Galaxy Z Fold, Surface Duo, Pixel Fold) */
+@media (horizontal-viewport-segments: 2) {
+  :root {
+    --fold-hinge-width: env(viewport-segment-width 0 0, 12px);
+  }
+  .fold-split-container {
+    display: grid !important;
+    grid-template-columns: 1fr var(--fold-hinge-width) 1fr !important;
+  }
+}
+
+/* Virtual Hinge Protector Crease */
+.fold-hinge-seam {
+  background: linear-gradient(to right, transparent, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.3), rgba(99, 102, 241, 0.15), transparent);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Outer Narrow Cover Screen (Fold closed, aspect ratio 21:9 - 24:9) */
+@media screen and (max-width: 390px) and (min-height: 650px) {
+  .cover-screen-optimized {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+}
+
+
