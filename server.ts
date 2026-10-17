@@ -6,7 +6,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { aiService } from "./server/aiService";
-import { normalizeFrenchPhonetics, injectSpeechProsody } from "./src/lib/phoneticNormalizer";
+import { normalizeFrenchPhonetics, injectSpeechProsody, buildRadioSsml } from "./src/lib/phoneticNormalizer";
 
 dotenv.config();
 
@@ -1040,17 +1040,20 @@ const podcastAudioCache = new Map<string, { audioBase64: string; mimeType: strin
 
 app.post("/api/podcast/tts", async (req, res) => {
   try {
-    const { text, apiKey, speed } = req.body;
+    const { text, apiKey, speed, voiceGender } = req.body;
     if (!text || typeof text !== "string") {
       res.status(400).json({ error: "Texte requis pour la synthèse vocale." });
       return;
     }
 
-    // Solution 10: Normalisation phonétique des acronymes et nombres français
+    // Proposition 3 : Normalisation phonétique et balisage SSML Broadcast Radio
     const normalized = normalizeFrenchPhonetics(text);
-    const textHash = crypto.createHash("sha256").update(normalized).digest("hex");
+    const radioSsml = buildRadioSsml(text);
+    const speedVal = typeof speed === "number" && speed > 0 ? speed : 1.12;
+    const gender = voiceGender === "female" ? "female" : "male";
+    const textHash = crypto.createHash("sha256").update(`${normalized}_${speedVal}_${gender}`).digest("hex");
 
-    // Solution 16: Cache mémoire et disque par empreinte SHA-256
+    // Proposition 4 : Cache mémoire et disque par empreinte SHA-256 (0 ms)
     const cached = podcastAudioCache.get(textHash);
     if (cached) {
       res.json({
@@ -1064,52 +1067,79 @@ app.post("/api/podcast/tts", async (req, res) => {
       return;
     }
 
-    // Solution 7: Conteneur souverain Piper TTS auto-hébergé sur le VPS OVH
-    const piperUrl = process.env.PIPER_TTS_URL;
-    if (piperUrl) {
+    const effectiveKey = apiKey || process.env.GEMINI_API_KEY || "";
+
+    // PROPOSITION 1 : Nouveau Moteur Google Gemini TTS Natif (via SDK @google/genai)
+    if (effectiveKey) {
       try {
-        const piperRes = await fetch(`${piperUrl}/synthesize`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: normalized, length_scale: 1 / (speed || 1.1) })
+        const ai = new GoogleGenAI({ apiKey: effectiveKey });
+        const voiceName = gender === "female" ? "Kore" : "Fenrir";
+
+        const geminiRes = await ai.models.generateContent({
+          model: "gemini-3.8-flash-lite-tts",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: normalized,
+                  speechMetadata: {
+                    style: "Journaliste de radio d'information continue, diction impeccable, intonation naturelle, chaleureuse et articulée",
+                  },
+                },
+              ],
+            },
+          ] as any,
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName,
+                },
+              },
+            },
+          } as any,
         });
-        if (piperRes.ok) {
-          const arrayBuf = await piperRes.arrayBuffer();
-          const audioBase64 = Buffer.from(arrayBuf).toString("base64");
-          podcastAudioCache.set(textHash, { audioBase64, mimeType: "audio/wav", createdAt: Date.now() });
+
+        const candidate = geminiRes.candidates?.[0];
+        const audioPart = candidate?.content?.parts?.find((p: any) => p.inlineData?.data && (p.inlineData?.mimeType?.startsWith("audio/") || !p.text));
+        const base64Data = audioPart?.inlineData?.data || candidate?.content?.parts?.[0]?.inlineData?.data;
+        if (base64Data) {
+          const mimeType = audioPart?.inlineData?.mimeType || "audio/wav";
+          podcastAudioCache.set(textHash, { audioBase64: base64Data, mimeType, createdAt: Date.now() });
           res.json({
             success: true,
-            audioBase64,
-            mimeType: "audio/wav",
+            audioBase64: base64Data,
+            mimeType,
             cached: false,
-            source: "sovereign_piper_vps",
-            normalizedText: normalized
+            source: "google_gemini_tts",
+            voiceLabel: `Google Gemini TTS (${voiceName})`,
+            normalizedText: normalized,
           });
           return;
         }
-      } catch (e) {
-        console.warn("[TTS] Microservice Piper non joignable, tentative alternative...", e);
+      } catch (errGemini: any) {
+        console.warn("[TTS] Gemini TTS non disponible ou restreint, bascule vers Google Cloud Studio/Journey...", errGemini?.message || errGemini);
       }
-    }
 
-    // Solution 8: TTS Cloud Haute Définition (Google Cloud TTS Neural2 / Gemini)
-    const effectiveKey = apiKey || process.env.GEMINI_API_KEY || "";
-    if (effectiveKey) {
+      // PROPOSITION 2 : Profils Vocaux Google Cloud « Studio » et « Journey » avec SSML et effets Broadcast
       try {
+        const preferredStudioVoice = gender === "female" ? "fr-FR-Studio-A" : "fr-FR-Studio-B";
         const gTtsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${effectiveKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            input: { text: normalized },
+            input: { ssml: radioSsml },
             voice: {
               languageCode: "fr-FR",
-              name: "fr-FR-Neural2-A",
-              ssmlGender: "FEMALE"
+              name: preferredStudioVoice
             },
             audioConfig: {
               audioEncoding: "MP3",
-              speakingRate: speed || 1.1,
-              pitch: 0.0
+              speakingRate: speedVal,
+              pitch: 0.0,
+              effectsProfileId: ["broadcast-quality-speaker", "headphone-class-device"]
             }
           })
         });
@@ -1127,24 +1157,94 @@ app.post("/api/podcast/tts", async (req, res) => {
               audioBase64: gData.audioContent,
               mimeType: "audio/mp3",
               cached: false,
-              source: "cloud_neural2",
+              source: "google_cloud_studio",
+              voiceLabel: `Google Studio Broadcast (${preferredStudioVoice})`,
               normalizedText: normalized
             });
             return;
           }
+        } else {
+          // Repli vers Google Journey (nouvelle génération ultra-naturelle)
+          const journeyVoice = gender === "female" ? "fr-FR-Journey-F" : "fr-FR-Journey-D";
+          const jRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${effectiveKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              input: { ssml: radioSsml },
+              voice: {
+                languageCode: "fr-FR",
+                name: journeyVoice
+              },
+              audioConfig: {
+                audioEncoding: "MP3",
+                speakingRate: speedVal,
+                effectsProfileId: ["broadcast-quality-speaker", "headphone-class-device"]
+              }
+            })
+          });
+
+          if (jRes.ok) {
+            const jData = await jRes.json();
+            if (jData.audioContent) {
+              podcastAudioCache.set(textHash, {
+                audioBase64: jData.audioContent,
+                mimeType: "audio/mp3",
+                createdAt: Date.now()
+              });
+              res.json({
+                success: true,
+                audioBase64: jData.audioContent,
+                mimeType: "audio/mp3",
+                cached: false,
+                source: "google_cloud_journey",
+                voiceLabel: `Google Journey (${journeyVoice})`,
+                normalizedText: normalized
+              });
+              return;
+            }
+          }
         }
-      } catch (errG) {
-        console.warn("[TTS] Échec tentative Cloud TTS Neural2:", errG);
+      } catch (errCloudTts) {
+        console.warn("[TTS] Échec tentative Cloud TTS Studio/Journey:", errCloudTts);
       }
     }
 
-    // Solution 9 & 10 : Fallback souverain avec texte prosodique et phonétique prêt pour le lecteur
+    // Solution Souveraine : Conteneur Piper TTS auto-hébergé sur le VPS OVH
+    const piperUrl = process.env.PIPER_TTS_URL;
+    if (piperUrl) {
+      try {
+        const piperRes = await fetch(`${piperUrl}/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: normalized, length_scale: 1 / speedVal })
+        });
+        if (piperRes.ok) {
+          const arrayBuf = await piperRes.arrayBuffer();
+          const audioBase64 = Buffer.from(arrayBuf).toString("base64");
+          podcastAudioCache.set(textHash, { audioBase64, mimeType: "audio/wav", createdAt: Date.now() });
+          res.json({
+            success: true,
+            audioBase64,
+            mimeType: "audio/wav",
+            cached: false,
+            source: "sovereign_piper_vps",
+            voiceLabel: "Piper VPS Souverain",
+            normalizedText: normalized
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn("[TTS] Microservice Piper non joignable...", e);
+      }
+    }
+
+    // Solution Fallback : Normalisation prosodique & phonétique optimisée pour le navigateur
     res.json({
       success: false,
       fallback: true,
       normalizedText: normalized,
       prosodyText: injectSpeechProsody(normalized),
-      message: "Synthèse vocale locale optimisée avec normalisation phonétique française."
+      message: "Synthèse vocale locale optimisée avec normalisation phonétique et prosodique française."
     });
   } catch (err: any) {
     console.error("[TTS] Erreur globale synthèse:", err);

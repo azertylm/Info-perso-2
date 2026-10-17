@@ -304,40 +304,64 @@ export const RssOpmlManagerModal: React.FC<RssOpmlManagerModalProps> = ({
     }
   };
 
+  // Escape key to close modal
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
+
       <div
-        className={`w-full max-w-2xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`relative w-full max-w-2xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-slate-900 border-slate-700 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/40 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-700/40 shrink-0 gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
               <Rss className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2">
-                <span>Gestionnaire de Flux RSS & OPML</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-black text-sm sm:text-base tracking-tight flex items-center gap-2 flex-wrap">
+                <span className="truncate">Gestionnaire de Flux RSS & OPML</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold shrink-0">
                   {feeds.filter((f) => f.isActive).length} actifs
                 </span>
               </h3>
-              <p className="text-xs opacity-70">
+              <p className="text-xs opacity-70 truncate max-w-md">
                 Abonnez-vous à vos médias favoris et fusionnez-les avec votre flux IA
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-800/50 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            type="button"
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+            title="Fermer (Échap)"
+            aria-label="Fermer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 

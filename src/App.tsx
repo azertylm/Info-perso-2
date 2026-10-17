@@ -47,9 +47,6 @@ import CommunitySpace from "./components/CommunitySpace";
 import UserAuth from "./components/UserAuth";
 import UserProfileDrawer from "./components/UserProfileDrawer";
 import ShortcutsGuide from "./components/ShortcutsGuide";
-import { ZeroKnowledgeVaultModal } from "./components/ZeroKnowledgeVaultModal";
-import { ArtisanProfitabilitySimulator } from "./components/ArtisanProfitabilitySimulator";
-import { ArtisanWorkshopModal } from "./components/ArtisanWorkshopModal";
 import { auth, onAuthStateChanged } from "./lib/firebase";
 import { SubscriptionStatus, listenToSubscription } from "./lib/subscriptionService";
 import { 
@@ -121,9 +118,8 @@ export default function App() {
   const [isTrousseauModalOpen, setIsTrousseauModalOpen] = useState(false);
   const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
 
-  // Zero-Knowledge Vault & Workshop Modals
-  const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
-  const [isWorkshopModalOpen, setIsWorkshopModalOpen] = useState(false);
+  // Workshop Modals
+
 
   // Display Modes: "sobre" | "pro" | "warm" | "cyber" | "fun"
   const [displayMode, setDisplayMode] = useState<"sobre" | "pro" | "warm" | "cyber" | "fun">(() => {
@@ -338,17 +334,14 @@ export default function App() {
           e.preventDefault();
           setSpotlightOpen(prev => !prev);
           triggerToast(language === "fr" ? "🔍 Centre de Commandes Spotlight (Alt + G)" : "🔍 Spotlight Command Center (Alt + G)");
-        } else if (key === "z") {
-          e.preventDefault();
-          setIsVaultModalOpen(prev => !prev);
-          triggerToast(language === "fr" ? "🔒 Coffre-fort Zero-Knowledge (Alt + Z)" : "🔒 Zero-Knowledge Vault (Alt + Z)");
+
         } else if (key === "b") {
           e.preventDefault();
           setActiveTab("simulateur");
           triggerToast(language === "fr" ? "📊 Simulateur de Rentabilité Financière (Alt + B)" : "📊 Profitability Simulator (Alt + B)");
         } else if (key === "o") {
           e.preventDefault();
-          setIsWorkshopModalOpen(prev => !prev);
+
           triggerToast(language === "fr" ? "🛠️ L'Œil de l'Atelier Chantier (Alt + O)" : "🛠️ Workshop Interventions (Alt + O)");
         }
       }
@@ -851,7 +844,18 @@ export default function App() {
       if (storedKeys) setApiKeys(JSON.parse(storedKeys));
 
       const storedRib = localStorage.getItem("infoperso_rib");
-      if (storedRib) setRibInfo(JSON.parse(storedRib));
+      if (storedRib) {
+        try {
+          const parsed = JSON.parse(storedRib);
+          setRibInfo({
+            ...DEFAULT_RIB,
+            ...parsed,
+            ribKey: parsed.ribKey || DEFAULT_RIB.ribKey || "92"
+          });
+        } catch (e) {
+          console.error("Erreur lecture RIB:", e);
+        }
+      }
 
       const storedSaved = localStorage.getItem("infoperso_saved");
       if (storedSaved) setSavedIds(new Set(JSON.parse(storedSaved)));
@@ -1073,30 +1077,9 @@ export default function App() {
           {/* PWA INSTALL BUTTON (Workbox & Home Screen) */}
           <PWAInstallButton className="hidden sm:inline-flex" />
 
-          {/* ZERO-KNOWLEDGE VAULT BUTTON (Infos Perso / ALPHABETTE) */}
-          <button
-            onClick={() => setIsVaultModalOpen(true)}
-            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 landscape:py-0.5 rounded-lg border text-xs font-bold transition-all cursor-pointer bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20"
-            title="Coffre-Fort Numérique Zero-Knowledge (PBKDF2 100k, AES-256-GCM, auto-lock 5 min) - Alt + Z"
-          >
-            <FolderLock className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden lg:inline">Coffre ZK</span>
-          </button>
 
-          {/* SIMULATEUR RENTABILITÉ BUTTON */}
-          <button
-            onClick={() => setActiveTab("simulateur")}
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 landscape:py-0.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-              activeTab === "simulateur"
-                ? "bg-emerald-600 text-white border-emerald-500 shadow-sm"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-            }`}
-            title="Simulateur de Rentabilité Financière & Point Mort (Artisan / Pass Alphabette) - Alt + B"
-          >
-            <Calculator className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden lg:inline">Rentabilité</span>
-          </button>
 
+          
           {/* BOUTON DON & RIB (DEMANDE UTILISATEUR) */}
           <button
             onClick={() => {
@@ -1356,27 +1339,12 @@ export default function App() {
               </span>
             </button>
 
-            {/* COFFRE-FORT ZERO-KNOWLEDGE */}
-            <button
-              onClick={() => {
-                setIsVaultModalOpen(true);
-                setSidebarOpen(false);
-              }}
-              className={getNavButtonClass(false, "cyan")}
-            >
-              <span className="flex items-center gap-2">
-                <FolderLock className="w-5 h-5 text-indigo-400" />
-                Coffre Zero-Knowledge
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                AES-256
-              </span>
-            </button>
+
 
             {/* L'OEIL DE L'ATELIER */}
             <button
               onClick={() => {
-                setIsWorkshopModalOpen(true);
+                // Workshop removed
                 setSidebarOpen(false);
               }}
               className={getNavButtonClass(false, "cyan")}
@@ -1570,8 +1538,7 @@ export default function App() {
               displayMode={displayMode}
               onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
               onNavigateToTab={setActiveTab}
-              onOpenVault={() => setIsVaultModalOpen(true)}
-              onOpenWorkshop={() => setIsWorkshopModalOpen(true)}
+
               onOpenPricing={() => setIsPricingModalOpen(true)}
               onSetTheme={(t) => {
                 setThemeMode(t);
@@ -1668,7 +1635,7 @@ export default function App() {
 
           {activeTab === "simulateur" && (
             <div className="py-2 max-w-5xl mx-auto space-y-6">
-              <ArtisanProfitabilitySimulator />
+
             </div>
           )}
 
@@ -1716,14 +1683,7 @@ export default function App() {
                   <Calculator className="w-3.5 h-3.5 text-emerald-400" />
                   Simulateur Rentabilité
                 </button>
-                <span className="opacity-40">•</span>
-                <button
-                  onClick={() => setIsVaultModalOpen(true)}
-                  className="hover:text-indigo-400 transition-colors font-medium cursor-pointer flex items-center gap-1"
-                >
-                  <FolderLock className="w-3.5 h-3.5 text-indigo-400" />
-                  Coffre ZK
-                </button>
+
                 <span className="opacity-40">•</span>
                 <button onClick={() => setActiveTab("keys")} className="hover:text-violet-400 transition-colors font-medium cursor-pointer">
                   Clés API Mistral
@@ -1863,8 +1823,7 @@ export default function App() {
           setDisplayMode(mode);
           localStorage.setItem("infoperso_display_mode", mode);
         }}
-        onOpenVault={() => setIsVaultModalOpen(true)}
-        onOpenWorkshop={() => setIsWorkshopModalOpen(true)}
+
       />
 
       {/* ALPHABETTE SUBSCRIPTION & ACCESS CONTROL MODAL */}
@@ -1911,17 +1870,9 @@ export default function App() {
         themeMode={themeMode}
       />
 
-      {/* ZERO-KNOWLEDGE VAULT MODAL (Infos Perso / ALPHABETTE) */}
-      <ZeroKnowledgeVaultModal
-        isOpen={isVaultModalOpen}
-        onClose={() => setIsVaultModalOpen(false)}
-      />
 
-      {/* L'OEIL DE L'ATELIER (Artisan Interventions Offline & Synchro) */}
-      <ArtisanWorkshopModal
-        isOpen={isWorkshopModalOpen}
-        onClose={() => setIsWorkshopModalOpen(false)}
-      />
+
+
     </div>
   );
 }

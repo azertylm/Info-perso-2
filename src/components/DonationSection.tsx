@@ -1,6 +1,12 @@
-import React, { useState } from "react";
-import { CreditCard, Copy, Check, Heart, Info, Coins, QrCode, Edit3, Save, Share2 } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { 
+  CreditCard, Copy, Check, Heart, Info, Coins, QrCode, Edit3, Save, Share2, 
+  Crown, Award, Sparkles, CheckCircle2, ShieldCheck, AlertTriangle, ArrowRight, Star,
+  Calculator, Wand2, RefreshCw, Flame
+} from "lucide-react";
 import { RibInfo } from "../types";
+import { activateFounderPlan, isFounderMember } from "../lib/subscriptionService";
+import { auth } from "../lib/firebase";
 
 interface DonationSectionProps {
   rib: RibInfo;
@@ -87,13 +93,57 @@ export default function DonationSection({
     return "w-full py-2.5 bg-linear-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-sans font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-500/20";
   };
   const [isEditing, setIsEditing] = useState(false);
-  const [tempRib, setTempRib] = useState<RibInfo>({ ...rib });
+  const [tempRib, setTempRib] = useState<RibInfo>({
+    bankName: rib.bankName || "",
+    accountHolder: rib.accountHolder || "",
+    iban: rib.iban || "",
+    bic: rib.bic || "",
+    bankCode: rib.bankCode || "",
+    branchCode: rib.branchCode || "",
+    accountNumber: rib.accountNumber || "",
+    ribKey: rib.ribKey || ""
+  });
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [donationAmount, setDonationAmount] = useState<number | "libre">(20);
-  const [customAmount, setCustomAmount] = useState("");
+  const [donationAmount, setDonationAmount] = useState<number | "libre">(30);
+  const [customAmount, setCustomAmount] = useState("30");
   const [donorName, setDonorName] = useState("");
   const [donationType, setDonationType] = useState<"virement" | "cb">("virement");
   const [cbSimStep, setCbSimStep] = useState<"idle" | "submitting" | "success">("idle");
+  const [isFounderActive, setIsFounderActive] = useState<boolean>(() => isFounderMember());
+  const [founderSlotNumber] = useState<number>(() => {
+    return Number(localStorage.getItem("infoperso_founder_number")) || 84;
+  });
+
+  const totalSlots = 500;
+  const allocatedSlots = 84;
+  const remainingSlots = totalSlots - allocatedSlots;
+  const progressPercent = Math.round((allocatedSlots / totalSlots) * 100);
+
+  // Synchronise tempRib whenever rib prop changes
+  useEffect(() => {
+    setTempRib({
+      bankName: rib.bankName || "",
+      accountHolder: rib.accountHolder || "",
+      iban: rib.iban || "",
+      bic: rib.bic || "",
+      bankCode: rib.bankCode || "",
+      branchCode: rib.branchCode || "",
+      accountNumber: rib.accountNumber || "",
+      ribKey: rib.ribKey || ""
+    });
+  }, [rib]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setIsFounderActive(isFounderMember());
+    };
+    window.addEventListener("alphabette_plan_updated", handleUpdate);
+    window.addEventListener("alphabette_quota_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("alphabette_plan_updated", handleUpdate);
+      window.removeEventListener("alphabette_quota_updated", handleUpdate);
+    };
+  }, []);
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -102,27 +152,138 @@ export default function DonationSection({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  // Modulo 97 official French RIB key calculation
+  const computeRibKey = (bank: string, branch: string, acc: string): string => {
+    const b = (bank || "").replace(/\D/g, "").padStart(5, "0").slice(0, 5);
+    const g = (branch || "").replace(/\D/g, "").padStart(5, "0").slice(0, 5);
+    const letterMap: Record<string, string> = {
+      A: "1", B: "2", C: "3", D: "4", E: "5", F: "6", G: "7", H: "8", I: "9",
+      J: "1", K: "2", L: "3", M: "4", N: "5", O: "6", P: "7", Q: "8", R: "9",
+      S: "2", T: "3", U: "4", V: "5", W: "6", X: "7", Y: "8", Z: "9"
+    };
+    const rawAcc = (acc || "").toUpperCase().replace(/[^A-Z0-9]/g, "").padStart(11, "0").slice(-11);
+    const normalizedAcc = rawAcc.split("").map(c => letterMap[c] || c).join("");
+
+    try {
+      const bankBig = BigInt(b || "0");
+      const branchBig = BigInt(g || "0");
+      const accBig = BigInt(normalizedAcc || "0");
+      const mod = (BigInt(89) * bankBig + BigInt(15) * branchBig + BigInt(3) * accBig) % BigInt(97);
+      const key = BigInt(97) - mod;
+      const keyNum = key === BigInt(0) ? 97 : Number(key);
+      return keyNum < 10 ? `0${keyNum}` : `${keyNum}`;
+    } catch {
+      return "00";
+    }
+  };
+
+  const handleAutoComputeKey = () => {
+    if (!tempRib.bankCode && !tempRib.accountNumber) {
+      onNotify("⚠️ Veuillez saisir au moins le Code Banque et le Numéro de compte.");
+      return;
+    }
+    const calculatedKey = computeRibKey(tempRib.bankCode, tempRib.branchCode, tempRib.accountNumber);
+    setTempRib(prev => ({ ...prev, ribKey: calculatedKey }));
+    onNotify(`🧮 Clé RIB calculée : ${calculatedKey}`);
+  };
+
+  const handleExtractFromIban = () => {
+    const clean = (tempRib.iban || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    if (clean.startsWith("FR") && clean.length >= 27) {
+      const bankCode = clean.slice(4, 9);
+      const branchCode = clean.slice(9, 14);
+      const accountNumber = clean.slice(14, 25);
+      const ribKey = clean.slice(25, 27);
+      setTempRib(prev => ({
+        ...prev,
+        bankCode,
+        branchCode,
+        accountNumber,
+        ribKey
+      }));
+      onNotify(`⚡ Données extraites de l'IBAN : Clé RIB = ${ribKey}`);
+    } else {
+      onNotify("⚠️ Veuillez saisir un IBAN français valide (commençant par FR et comportant 27 caractères).");
+    }
+  };
+
+  const handleGenerateIbanFromRib = () => {
+    const b = (tempRib.bankCode || "").replace(/\D/g, "").padStart(5, "0").slice(0, 5);
+    const g = (tempRib.branchCode || "").replace(/\D/g, "").padStart(5, "0").slice(0, 5);
+    const a = (tempRib.accountNumber || "").toUpperCase().replace(/[^A-Z0-9]/g, "").padStart(11, "0").slice(-11);
+    const k = (tempRib.ribKey || "").replace(/[^A-Z0-9]/g, "").padStart(2, "0").slice(0, 2);
+
+    if (!b || !a) {
+      onNotify("⚠️ Remplissez au moins Code Banque, Guichet et Numéro de compte pour générer l'IBAN.");
+      return;
+    }
+
+    try {
+      const ibanLetterMap = (str: string) => {
+        return str.split("").map(c => {
+          const code = c.charCodeAt(0);
+          if (code >= 65 && code <= 90) return (code - 55).toString();
+          return c;
+        }).join("");
+      };
+      const numericAcc = ibanLetterMap(a);
+      const numericPayload = `${b}${g}${numericAcc}${k}152700`;
+      const mod = BigInt(numericPayload) % BigInt(97);
+      const checkDigits = BigInt(98) - mod;
+      const checkStr = checkDigits < 10 ? `0${checkDigits}` : `${checkDigits}`;
+      const generatedIban = `FR${checkStr} ${b} ${g} ${a} ${k}`;
+      setTempRib(prev => ({ ...prev, iban: generatedIban }));
+      onNotify(`🔄 IBAN généré avec succès : ${generatedIban}`);
+    } catch {
+      const fallbackIban = `FR76 ${b} ${g} ${a} ${k}`;
+      setTempRib(prev => ({ ...prev, iban: fallbackIban }));
+      onNotify(`🔄 IBAN généré : ${fallbackIban}`);
+    }
+  };
+
   const handleSaveRib = () => {
     // Basic verification
     if (!tempRib.iban || !tempRib.bic || !tempRib.accountHolder) {
       onNotify("⚠️ Veuillez remplir le titulaire, l'IBAN et le BIC.");
       return;
     }
-    onRibChange(tempRib);
+    const cleanKey = (tempRib.ribKey || "").trim();
+    const finalRib: RibInfo = {
+      ...tempRib,
+      bankCode: tempRib.bankCode?.trim() || "",
+      branchCode: tempRib.branchCode?.trim() || "",
+      accountNumber: tempRib.accountNumber?.trim() || "",
+      ribKey: cleanKey || "00"
+    };
+    onRibChange(finalRib);
     setIsEditing(false);
-    onNotify("✅ Coordonnées bancaires (RIB) enregistrées !");
-  };
-
-  const handleSimulateCb = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCbSimStep("submitting");
-    setTimeout(() => {
-      setCbSimStep("success");
-      onNotify(`❤️ Merci infiniment pour votre don de ${donationAmount === "libre" ? customAmount : donationAmount}€ !`);
-    }, 1500);
+    onNotify(`✅ Coordonnées bancaires enregistrées avec succès (Clé RIB : ${finalRib.ribKey}) !`);
   };
 
   const finalDonationAmount = donationAmount === "libre" ? Number(customAmount) || 0 : donationAmount;
+  const isAmountValid = finalDonationAmount >= 30;
+
+  const handleActivateFounder = async () => {
+    if (!isAmountValid) {
+      onNotify("⚠️ Le montant minimum pour la Licence Perpétuelle Membre Fondateur est de 30 €.");
+      return;
+    }
+    setCbSimStep("submitting");
+    setTimeout(async () => {
+      try {
+        const currentUser = auth.currentUser;
+        const uid = currentUser?.uid || localStorage.getItem("infoperso_user_uid") || `user-${Date.now()}`;
+        const email = currentUser?.email || localStorage.getItem("infoperso_user_email") || "fondateur@alphabette.fr";
+        await activateFounderPlan(uid, email, finalDonationAmount, donorName);
+        setIsFounderActive(true);
+        setCbSimStep("success");
+        onNotify(`👑 Félicitations ! Vous êtes désormais Membre Fondateur #${founderSlotNumber} (Licence Perpétuelle à Vie débloquée) ! 🎉`);
+      } catch (err: any) {
+        onNotify("Erreur d'activation : " + (err?.message || "inconnue"));
+        setCbSimStep("idle");
+      }
+    }, 1200);
+  };
 
   return (
     <div id="donations-and-rib-view" className="max-w-4xl mx-auto space-y-6">
@@ -167,7 +328,27 @@ export default function DonationSection({
             <button
               onClick={() => {
                 if (isEditing) {
-                  setTempRib({ ...rib });
+                  setTempRib({
+                    bankName: rib.bankName || "",
+                    accountHolder: rib.accountHolder || "",
+                    iban: rib.iban || "",
+                    bic: rib.bic || "",
+                    bankCode: rib.bankCode || "",
+                    branchCode: rib.branchCode || "",
+                    accountNumber: rib.accountNumber || "",
+                    ribKey: rib.ribKey || ""
+                  });
+                } else {
+                  setTempRib({
+                    bankName: rib.bankName || "",
+                    accountHolder: rib.accountHolder || "",
+                    iban: rib.iban || "",
+                    bic: rib.bic || "",
+                    bankCode: rib.bankCode || "",
+                    branchCode: rib.branchCode || "",
+                    accountNumber: rib.accountNumber || "",
+                    ribKey: rib.ribKey || ""
+                  });
                 }
                 setIsEditing(!isEditing);
               }}
@@ -180,17 +361,23 @@ export default function DonationSection({
               }`}
             >
               <Edit3 className={`w-3.5 h-3.5 ${isFun ? "text-black" : isDark ? "text-cyan-400" : "text-indigo-600"}`} />
-              {isEditing ? "Annuler l'édition" : "Modifier mon RIB"}
+              {isEditing ? "Annuler l'édition" : "Modifier mon RIB & Clé"}
             </button>
           </div>
 
           {isEditing ? (
             /* RIB Editor form */
             <div className={getPanelClass() + " space-y-4 shadow-xl"}>
-              <h4 className={`font-bold text-sm flex items-center gap-1.5 ${getSubTitleClass()}`}>
-                <Coins className={`w-4 h-4 ${isCyber ? "text-[#00ffcc]" : isFun ? "text-black" : isDark ? "text-cyan-400" : "text-indigo-600"}`} />
-                Configuration de votre RIB personnel
-              </h4>
+              <div className="flex items-center justify-between border-b pb-3 border-slate-700/30">
+                <h4 className={`font-bold text-sm flex items-center gap-2 ${getSubTitleClass()}`}>
+                  <Coins className={`w-4 h-4 ${isCyber ? "text-[#00ffcc]" : isFun ? "text-black" : isDark ? "text-cyan-400" : "text-indigo-600"}`} />
+                  Modifier vos coordonnées bancaires &amp; Clé RIB
+                </h4>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold font-mono">
+                  Clé RIB éditable
+                </span>
+              </div>
+
               <p className={`text-xs leading-normal ${
                 isSobre ? isDark ? "text-zinc-300 font-sans" : "text-zinc-700 font-sans" :
                 isWarm ? isDark ? "text-amber-200 font-serif" : "text-amber-900 font-serif" :
@@ -198,9 +385,10 @@ export default function DonationSection({
                 isFun ? "text-black font-medium" :
                 isDark ? "text-slate-200 font-sans" : "text-slate-700 font-sans font-medium"
               }`}>
-                Saisissez les informations de votre RIB ci-dessous. Elles s'afficheront sur la carte ci-dessous pour que vos utilisateurs puissent faire des dons.
+                Vous pouvez saisir ou modifier chaque élément de votre RIB, en particulier la <strong>Clé RIB (2 chiffres)</strong>. Utilisez les boutons d'assistance rapide ci-dessous pour calculer la clé ou extraire les données depuis l'IBAN.
               </p>
 
+              {/* Titulaire & Banque */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className={getLabelClass()}>Nom de la Banque</label>
@@ -219,77 +407,165 @@ export default function DonationSection({
                     value={tempRib.accountHolder}
                     onChange={(e) => setTempRib({ ...tempRib, accountHolder: e.target.value })}
                     className={getInputClass()}
-                    placeholder="M. Jean DUPONT"
+                    placeholder="M. Jean DUPONT ou ALPHABETTE SASU"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className={getLabelClass()}>Code Banque</label>
-                  <input
-                    type="text"
-                    maxLength={5}
-                    value={tempRib.bankCode}
-                    onChange={(e) => setTempRib({ ...tempRib, bankCode: e.target.value })}
-                    className={getInputClass() + " text-center font-mono"}
-                    placeholder="12345"
-                  />
+              {/* Les 4 composants du RIB Français */}
+              <div className="p-3 rounded-xl border border-indigo-500/20 bg-indigo-950/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
+                    Composants du RIB National Français
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Banque (5) + Guichet (5) + Compte (11) + Clé (2)
+                  </span>
                 </div>
-                <div>
-                  <label className={getLabelClass()}>Code Guichet</label>
-                  <input
-                    type="text"
-                    maxLength={5}
-                    value={tempRib.branchCode}
-                    onChange={(e) => setTempRib({ ...tempRib, branchCode: e.target.value })}
-                    className={getInputClass() + " text-center font-mono"}
-                    placeholder="67890"
-                  />
+
+                <div className="grid grid-cols-2 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-3">
+                    <label className={getLabelClass()}>Code Banque (5)</label>
+                    <input
+                      type="text"
+                      maxLength={5}
+                      value={tempRib.bankCode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                        setTempRib({ ...tempRib, bankCode: val });
+                      }}
+                      className={getInputClass() + " text-center font-mono"}
+                      placeholder="12517"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className={getLabelClass()}>Code Guichet (5)</label>
+                    <input
+                      type="text"
+                      maxLength={5}
+                      value={tempRib.branchCode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                        setTempRib({ ...tempRib, branchCode: val });
+                      }}
+                      className={getInputClass() + " text-center font-mono"}
+                      placeholder="00001"
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <label className={getLabelClass()}>Numéro de Compte (11)</label>
+                    <input
+                      type="text"
+                      maxLength={11}
+                      value={tempRib.accountNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 11).toUpperCase();
+                        setTempRib({ ...tempRib, accountNumber: val });
+                      }}
+                      className={getInputClass() + " text-center font-mono uppercase"}
+                      placeholder="12345678901"
+                    />
+                  </div>
+                  {/* Champ Clé RIB nettement mis en valeur et 100% modifiable */}
+                  <div className="sm:col-span-2">
+                    <label className={getLabelClass() + " text-amber-400 font-extrabold flex items-center gap-1"}>
+                      <span>Clé RIB (2)</span>
+                      <span className="text-[9px] text-amber-500 font-normal">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={tempRib.ribKey ?? ""}
+                      onChange={(e) => {
+                        // Autorise saisie directe de la clé (chiffres ou lettres, 2 caractères max)
+                        const val = e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
+                        setTempRib({ ...tempRib, ribKey: val });
+                      }}
+                      className={getInputClass() + " text-center font-mono font-black text-amber-400 text-sm tracking-widest border-amber-500/50 focus:border-amber-400 bg-amber-500/10"}
+                      placeholder="92"
+                      title="Saisissez directement votre clé RIB à 2 chiffres"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <label className={getLabelClass()}>Numéro de Compte</label>
-                  <input
-                    type="text"
-                    maxLength={11}
-                    value={tempRib.accountNumber}
-                    onChange={(e) => setTempRib({ ...tempRib, accountNumber: e.target.value })}
-                    className={getInputClass() + " text-center font-mono"}
-                    placeholder="00012345678"
-                  />
+
+                {/* Boutons d'assistance rapide */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-700/30">
+                  <button
+                    type="button"
+                    onClick={handleAutoComputeKey}
+                    className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Calculer automatiquement la clé RIB selon la formule officielle modulo 97"
+                  >
+                    <Calculator className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Calculer la Clé RIB (modulo 97)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExtractFromIban}
+                    className="px-2.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-cyan-300 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Extraire Banque, Guichet, Compte et Clé RIB depuis l'IBAN saisi ci-dessous"
+                  >
+                    <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Extraire Clé &amp; RIB depuis l'IBAN</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateIbanFromRib}
+                    className="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Générer l'IBAN complet à partir des 4 champs ci-dessus"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Générer l'IBAN complet</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className={getLabelClass()}>Code IBAN</label>
+              {/* IBAN & BIC */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="sm:col-span-2">
+                  <label className={getLabelClass()}>Code IBAN International</label>
                   <input
                     type="text"
                     value={tempRib.iban}
-                    onChange={(e) => setTempRib({ ...tempRib, iban: e.target.value })}
-                    className={getInputClass() + " font-mono"}
-                    placeholder="FR76 1234 5678 9012 3456 7890 123"
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setTempRib({ ...tempRib, iban: val });
+                    }}
+                    className={getInputClass() + " font-mono uppercase"}
+                    placeholder="FR76 1251 7000 0112 3456 7890 192"
                   />
                 </div>
                 <div>
-                  <label className={getLabelClass()}>Code BIC</label>
+                  <label className={getLabelClass()}>Code BIC / SWIFT</label>
                   <input
                     type="text"
                     value={tempRib.bic}
-                    onChange={(e) => setTempRib({ ...tempRib, bic: e.target.value })}
-                    className={getInputClass() + " font-mono text-center"}
-                    placeholder="CRCAFR2RXXX"
+                    onChange={(e) => setTempRib({ ...tempRib, bic: e.target.value.toUpperCase() })}
+                    className={getInputClass() + " font-mono text-center uppercase"}
+                    placeholder="CRCAMFRPXXX"
                   />
                 </div>
               </div>
 
-              <button
-                onClick={handleSaveRib}
-                className={getActionButtonClass()}
-              >
-                <Save className="w-4 h-4" />
-                Enregistrer mon RIB
-              </button>
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveRib}
+                  className={getActionButtonClass() + " flex-1"}
+                >
+                  <Save className="w-4 h-4" />
+                  Enregistrer mon RIB &amp; ma Clé
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Annuler
+                </button>
+              </div>
             </div>
           ) : (
             /* Styled RIB Slip Render */
@@ -525,31 +801,95 @@ export default function DonationSection({
           </div>
         </div>
 
-        {/* Right Column: Interactive Support & Credit Card Simulator */}
+        {/* Right Column: Offre Officielle « Membre Fondateur — Licence Perpétuelle » */}
         <div className="lg:col-span-5 space-y-6">
-          <h3 className={`font-bold text-xs uppercase tracking-[0.15em] flex items-center gap-2 ${
-            isSobre ? isDark ? "text-zinc-200 font-sans" : "text-zinc-900 font-sans" :
-            isWarm ? isDark ? "text-amber-200 font-serif" : "text-amber-950 font-serif" :
-            isCyber ? "text-cyan-400 font-mono" :
-            isFun ? "text-black font-black" :
-            isDark ? "text-slate-200 font-sans font-bold" : "text-slate-900 font-sans font-bold"
-          }`}>
-            <Coins className={`w-4 h-4 ${isFun ? "text-black" : isDark ? "text-cyan-400" : "text-indigo-600"}`} />
-            Don Rapide
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className={`font-bold text-xs uppercase tracking-[0.15em] flex items-center gap-2 ${
+              isSobre ? isDark ? "text-zinc-200 font-sans" : "text-zinc-900 font-sans" :
+              isWarm ? isDark ? "text-amber-200 font-serif" : "text-amber-950 font-serif" :
+              isCyber ? "text-cyan-400 font-mono" :
+              isFun ? "text-black font-black" :
+              isDark ? "text-amber-300 font-sans font-bold" : "text-amber-700 font-sans font-bold"
+            }`}>
+              <Crown className="w-4 h-4 text-amber-500 fill-amber-500/20" />
+              Offre Officielle Membre Fondateur
+            </h3>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              500 Places Max
+            </span>
+          </div>
 
-          <div className={getPanelClass() + " space-y-5"}>
-            {/* Amount Presets */}
-            <div className="space-y-2">
-              <label className={`block text-xs font-bold ${
-                isSobre ? isDark ? "text-white font-sans" : "text-zinc-950 font-sans" :
-                isWarm ? isDark ? "text-amber-100 font-serif" : "text-amber-950 font-serif" :
-                isCyber ? "text-cyan-400 font-mono font-bold" :
-                isFun ? "text-black font-black" :
-                isDark ? "text-slate-100 font-sans font-bold" : "text-slate-900 font-sans font-bold"
-              }`}>Choisir un montant :</label>
-              <div className="grid grid-cols-4 gap-2">
-                {[5, 10, 20, 50].map((val) => (
+          <div className={`${getPanelClass()} space-y-5 border-2 ${
+            isDark ? "border-amber-500/40 shadow-amber-950/30" : "border-amber-400/60 shadow-amber-100"
+          }`}>
+            {/* Header Encart Premium */}
+            <div className="space-y-1.5 border-b border-amber-500/20 pb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 shadow-md font-bold shrink-0">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className={`text-base sm:text-lg font-black tracking-tight leading-snug ${
+                    isDark ? "text-white" : "text-slate-950"
+                  }`}>
+                    Pass Fondateur — Licence Perpétuelle
+                  </h4>
+                  <p className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
+                    Accès Garanti à Vie • Zéro Récurrence
+                  </p>
+                </div>
+              </div>
+              <p className={`text-xs mt-1 leading-relaxed ${
+                isDark ? "text-slate-300" : "text-slate-700 font-medium"
+              }`}>
+                Soutenez une information souveraine, sans publicité et libérée du bruit médiatique.
+              </p>
+            </div>
+
+            {/* JAUGE DE PROGRESSION DES 500 PLACES PIONNIÈRES */}
+            <div className={`p-3.5 rounded-xl border space-y-2 ${
+              isDark ? "bg-slate-950/80 border-amber-500/30" : "bg-amber-50/70 border-amber-300"
+            }`}>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold flex items-center gap-1.5 text-amber-400">
+                  <Flame className="w-4 h-4 text-amber-500 animate-pulse" />
+                  Places Pionnières Attribuées
+                </span>
+                <span className={`font-mono font-black ${isDark ? "text-white" : "text-slate-950"}`}>
+                  <strong className="text-amber-400 text-sm">{allocatedSlots}</strong> / {totalSlots} places
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full h-3 rounded-full bg-slate-800/80 p-0.5 border border-amber-500/30 overflow-hidden">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-400 to-yellow-300 transition-all duration-700 shadow-sm shadow-amber-500/50"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] opacity-80 pt-0.5">
+                <span>Rareté : {remainingSlots} places restantes</span>
+                <span className="font-semibold text-emerald-400">Pionnier #{founderSlotNumber}</span>
+              </div>
+            </div>
+
+            {/* SÉLECTEUR DE MONTANT INTERACTIF (30€ MINIMUM STRICT) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className={`block text-xs font-bold ${
+                  isDark ? "text-slate-100" : "text-slate-900"
+                }`}>
+                  Montant de votre contribution (30 € minimum) :
+                </label>
+                <span className="text-[10px] text-amber-400 font-bold font-mono">
+                  Montant libre sans plafond
+                </span>
+              </div>
+
+              {/* 3 boutons rapides suggérés : 30 €, 50 €, 100 € */}
+              <div className="grid grid-cols-3 gap-2">
+                {[30, 50, 100].map((val) => (
                   <button
                     key={val}
                     type="button"
@@ -557,296 +897,248 @@ export default function DonationSection({
                       setDonationAmount(val);
                       setCbSimStep("idle");
                     }}
-                    className={getButtonClass(donationAmount === val)}
+                    className={`py-2 px-3 rounded-xl text-xs font-black transition-all border cursor-pointer ${
+                      donationAmount === val
+                        ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 border-amber-300 shadow-md shadow-amber-500/30 scale-102"
+                        : isDark
+                        ? "bg-slate-900 border-slate-750 text-slate-200 hover:bg-slate-800 hover:border-amber-500/50"
+                        : "bg-white border-slate-300 text-slate-800 hover:bg-amber-50/50 hover:border-amber-400"
+                    }`}
                   >
-                    {val}€
+                    {val} € {val === 30 && <span className="text-[9px] block opacity-80">Minimum</span>}
+                    {val === 50 && <span className="text-[9px] block opacity-80">Soutien</span>}
+                    {val === 100 && <span className="text-[9px] block opacity-80">Mécène</span>}
                   </button>
                 ))}
               </div>
+
+              {/* Bouton Montant Libre */}
               <button
                 type="button"
                 onClick={() => {
                   setDonationAmount("libre");
                   setCbSimStep("idle");
                 }}
-                className={getButtonClass(donationAmount === "libre") + " w-full font-bold"}
+                className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                  donationAmount === "libre"
+                    ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm"
+                    : isDark
+                    ? "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700"
+                    : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                }`}
               >
-                Montant Libre
+                Autre montant (libre dès 30 €)
               </button>
 
+              {/* Champ Autre Montant avec Validation Stricte >= 30 € */}
               {donationAmount === "libre" && (
-                <div className="relative mt-2">
-                  <input
-                    type="number"
-                    value={customAmount}
-                    onChange={(e) => {
-                      setCustomAmount(e.target.value);
-                      setCbSimStep("idle");
-                    }}
-                    placeholder="Saisir le montant en €"
-                    className={getInputClass()}
-                  />
-                  <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold ${
-                    isSobre ? isDark ? "text-zinc-400" : "text-zinc-600" :
-                    isWarm ? isDark ? "text-amber-300" : "text-amber-900" :
-                    isCyber ? "text-cyan-400 font-mono" :
-                    isFun ? "text-black font-black font-sans" :
-                    isDark ? "text-slate-300 font-sans" : "text-slate-700 font-sans"
-                  }`}>
-                    EUR
-                  </span>
+                <div className="space-y-1.5 pt-1">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={30}
+                      step={1}
+                      value={customAmount}
+                      onChange={(e) => {
+                        setCustomAmount(e.target.value);
+                        setCbSimStep("idle");
+                      }}
+                      placeholder="Saisissez un montant (min. 30 €)"
+                      className={`${getInputClass()} pr-12 font-bold ${
+                        Number(customAmount) > 0 && Number(customAmount) < 30
+                          ? "border-rose-500 ring-1 ring-rose-500 text-rose-300"
+                          : ""
+                      }`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-amber-400">
+                      EUR (€)
+                    </span>
+                  </div>
+
+                  {Number(customAmount) > 0 && Number(customAmount) < 30 && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-rose-400 font-bold bg-rose-500/10 border border-rose-500/30 p-2 rounded-lg">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Validation stricte : Le montant minimum pour la Licence Perpétuelle est de 30 €.</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Donation Channel toggle */}
+            {/* LISTE CLAIRE DES CONTREPARTIES INCLUSES */}
+            <div className={`p-4 rounded-xl border space-y-2.5 ${
+              isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+            }`}>
+              <h5 className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                isDark ? "text-amber-400" : "text-amber-700"
+              }`}>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                Contreparties Incluses à Vie :
+              </h5>
+              <ul className="space-y-2 text-xs">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Accès illimité et garanti à vie</strong> à toutes les fonctionnalités actuelles et futures d'InfoPerso.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Zéro abonnement récurrent</strong> : aucune reconduction tacite, aucun frais dissimulé.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Badge exclusif « Fondateur Pionnier »</strong> affiché fièrement dans votre profil lecteur.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Priorité sur les développements</strong> et vote consultatif sur les prochaines fonctionnalités du bouquet.
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* NOM DU DONATEUR / PIONNIER */}
+            <div>
+              <label className={getLabelClass()}>Nom ou Pseudo du Membre Fondateur (Optionnel)</label>
+              <input
+                type="text"
+                value={donorName}
+                onChange={(e) => setDonorName(e.target.value)}
+                placeholder="ex: Valentin de La Grande-Motte"
+                className={getInputClass()}
+              />
+            </div>
+
+            {/* MODE D'ACTIVATION : VIREMENT DIRECT SEPA vs SIMULATION EN 1-CLIC */}
             <div className={`flex text-xs font-sans border-b ${
-              isSobre ? isDark ? "border-zinc-800" : "border-zinc-200" :
-              isWarm ? isDark ? "border-amber-900/30" : "border-amber-900/15" :
-              isCyber ? "border-cyan-500/30" :
-              isFun ? "border-black" :
               isDark ? "border-slate-800" : "border-slate-200"
             }`}>
               <button
+                type="button"
                 onClick={() => setDonationType("virement")}
-                className={`flex-1 pb-2.5 text-center cursor-pointer transition-colors ${
+                className={`flex-1 pb-2.5 text-center cursor-pointer transition-colors font-bold ${
                   donationType === "virement"
-                    ? isSobre ? isDark ? "border-b-2 border-white text-white font-bold" : "border-b-2 border-zinc-950 text-zinc-950 font-bold"
-                      : isWarm ? isDark ? "border-b-2 border-amber-400 text-amber-200 font-serif font-bold" : "border-b-2 border-amber-900 text-amber-950 font-serif font-bold"
-                      : isCyber ? "border-b-2 border-cyan-400 text-[#00ffcc] font-mono font-bold"
-                      : isFun ? "border-b-3 border-black text-black font-black bg-pink-200 rounded-t-lg"
-                      : isDark ? "border-b-2 border-indigo-400 text-cyan-300 font-bold" : "border-b-2 border-indigo-600 text-indigo-950 font-extrabold"
-                    : isSobre ? isDark ? "text-zinc-400 hover:text-zinc-200" : "text-zinc-600 hover:text-zinc-950 font-medium"
-                      : isWarm ? isDark ? "text-amber-300/60 hover:text-amber-200 font-serif" : "text-amber-900/70 hover:text-amber-950 font-serif font-medium"
-                      : isCyber ? "text-cyan-500/70 hover:text-cyan-300 font-mono"
-                      : isFun ? "text-black opacity-70 hover:opacity-100 font-bold"
-                      : isDark ? "text-slate-300 hover:text-white font-medium" : "text-slate-600 hover:text-slate-950 font-semibold"
+                    ? "border-b-2 border-amber-400 text-amber-400"
+                    : isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Virement bancaire
+                Virement SEPA Direct (0% frais)
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setDonationType("cb");
                   setCbSimStep("idle");
                 }}
-                className={`flex-1 pb-2.5 text-center cursor-pointer transition-colors ${
+                className={`flex-1 pb-2.5 text-center cursor-pointer transition-colors font-bold ${
                   donationType === "cb"
-                    ? isSobre ? isDark ? "border-b-2 border-white text-white font-bold" : "border-b-2 border-zinc-950 text-zinc-950 font-bold"
-                      : isWarm ? isDark ? "border-b-2 border-amber-400 text-amber-200 font-serif font-bold" : "border-b-2 border-amber-900 text-amber-950 font-serif font-bold"
-                      : isCyber ? "border-b-2 border-cyan-400 text-[#00ffcc] font-mono font-bold"
-                      : isFun ? "border-b-3 border-black text-black font-black bg-pink-200 rounded-t-lg"
-                      : isDark ? "border-b-2 border-indigo-400 text-cyan-300 font-bold" : "border-b-2 border-indigo-600 text-indigo-950 font-extrabold"
-                    : isSobre ? isDark ? "text-zinc-400 hover:text-zinc-200" : "text-zinc-600 hover:text-zinc-950 font-medium"
-                      : isWarm ? isDark ? "text-amber-300/60 hover:text-amber-200 font-serif" : "text-amber-900/70 hover:text-amber-950 font-serif font-medium"
-                      : isCyber ? "text-cyan-500/70 hover:text-cyan-300 font-mono"
-                      : isFun ? "text-black opacity-70 hover:opacity-100 font-bold"
-                      : isDark ? "text-slate-300 hover:text-white font-medium" : "text-slate-600 hover:text-slate-950 font-semibold"
+                    ? "border-b-2 border-amber-400 text-amber-400"
+                    : isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Simulation Carte
+                Activation Directe en 1-Clic
               </button>
             </div>
 
             {donationType === "virement" ? (
-              /* Virement display details */
-              <div className={`space-y-3 pt-2 text-xs leading-relaxed ${
-                isSobre ? isDark ? "text-zinc-200 font-sans" : "text-zinc-800 font-sans" :
-                isWarm ? isDark ? "text-amber-200 font-serif" : "text-amber-950 font-serif" :
-                isCyber ? "text-cyan-300 font-mono" :
-                isFun ? "text-black font-medium" :
-                isDark ? "text-slate-200 font-sans" : "text-slate-800 font-sans font-medium"
-              }`}>
-                <p>
-                  Les virements SEPA n'engendrent <strong className="font-extrabold">aucun frais de commission</strong>. C'est le moyen de soutien le plus direct et efficace.
-                </p>
-                <div className={`p-3.5 rounded-xl border ${
-                  isSobre ? isDark ? "bg-zinc-950 border-zinc-800 text-white space-y-2" : "bg-zinc-100 border-zinc-300 text-zinc-950 space-y-2" :
-                  isWarm ? isDark ? "bg-[#1f1916] border-amber-900/30 text-amber-100 space-y-2 font-serif" : "bg-[#FAF6F0] border-amber-900/15 text-amber-950 space-y-2 font-serif" :
-                  isCyber ? "bg-black border-cyan-400/30 text-cyan-300 space-y-2 font-mono" :
-                  isFun ? "bg-white border-3 border-black rounded-xl text-black space-y-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" :
-                  isDark ? "bg-slate-950 border border-slate-750 text-slate-100 space-y-2 font-sans" : "bg-slate-50 border border-slate-300 text-slate-950 space-y-2 font-sans shadow-xs"
+              <div className="space-y-3 pt-1">
+                <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                  isDark ? "bg-slate-950 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800"
                 }`}>
                   <div className="flex justify-between items-center">
-                    <span className={
-                      isSobre ? isDark ? "text-zinc-300 font-medium" : "text-zinc-700 font-medium" :
-                      isWarm ? isDark ? "text-amber-300 font-medium" : "text-amber-900 font-medium" :
-                      isCyber ? "text-cyan-400 font-mono font-medium" :
-                      isFun ? "text-black font-bold" :
-                      isDark ? "text-slate-300 font-semibold" : "text-slate-700 font-bold"
-                    }>Bénéficiaire :</span>
-                    <span className={`font-bold uppercase ${
-                      isSobre ? isDark ? "text-white" : "text-zinc-950 font-black" :
-                      isWarm ? isDark ? "text-amber-100" : "text-amber-950 font-black" :
-                      isCyber ? "text-[#00ffcc]" :
-                      isFun ? "text-black font-black" :
-                      isDark ? "text-white font-extrabold" : "text-slate-950 font-black"
-                    }`}>{rib.accountHolder}</span>
+                    <span className="opacity-70">Bénéficiaire :</span>
+                    <span className="font-bold uppercase text-white dark:text-white">{rib.accountHolder}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className={
-                      isSobre ? isDark ? "text-zinc-300 font-medium" : "text-zinc-700 font-medium" :
-                      isWarm ? isDark ? "text-amber-300 font-medium" : "text-amber-900 font-medium" :
-                      isCyber ? "text-cyan-400 font-mono font-medium" :
-                      isFun ? "text-black font-bold" :
-                      isDark ? "text-slate-300 font-semibold" : "text-slate-700 font-bold"
-                    }>Montant suggéré :</span>
-                    <span className={`font-bold ${
-                      isSobre ? isDark ? "text-white" : "text-zinc-950 font-black" :
-                      isWarm ? isDark ? "text-amber-100" : "text-amber-950 font-black" :
-                      isCyber ? "text-[#00ffcc]" :
-                      isFun ? "text-black font-black" :
-                      isDark ? "text-cyan-300 font-extrabold" : "text-indigo-700 font-black text-sm"
-                    }`}>{finalDonationAmount} €</span>
+                    <span className="opacity-70">Montant sélectionné :</span>
+                    <span className="font-black text-amber-400 text-sm">{finalDonationAmount} €</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className={
-                      isSobre ? isDark ? "text-zinc-300 font-medium" : "text-zinc-700 font-medium" :
-                      isWarm ? isDark ? "text-amber-300 font-medium" : "text-amber-900 font-medium" :
-                      isCyber ? "text-cyan-400 font-mono font-medium" :
-                      isFun ? "text-black font-bold" :
-                      isDark ? "text-slate-300 font-semibold" : "text-slate-700 font-bold"
-                    }>Motif conseillé :</span>
-                    <span className={`font-mono font-bold text-xs ${
-                      isSobre ? isDark ? "text-zinc-200" : "text-zinc-950" :
-                      isWarm ? isDark ? "text-amber-200" : "text-amber-950" :
-                      isCyber ? "text-[#00ffcc]" :
-                      isFun ? "text-black" :
-                      isDark ? "text-cyan-300" : "text-indigo-950"
-                    }`}>DON INFOPERSO {donorName ? `- ${donorName}` : ""}</span>
+                    <span className="opacity-70">Motif de virement :</span>
+                    <span className="font-mono font-bold text-emerald-400 text-xs">
+                      FONDATEUR-{founderSlotNumber}{donorName ? `-${donorName.replace(/\s+/g, "").toUpperCase()}` : ""}
+                    </span>
                   </div>
                 </div>
 
-                <div>
-                  <label className={getLabelClass()}>Votre Nom (Optionnel)</label>
-                  <input
-                    type="text"
-                    value={donorName}
-                    onChange={(e) => setDonorName(e.target.value)}
-                    placeholder="ex: Jean de Montpellier"
-                    className={getInputClass()}
-                  />
-                </div>
+                {/* Bouton d'action principal bien visible */}
+                <button
+                  type="button"
+                  onClick={handleActivateFounder}
+                  disabled={!isAmountValid || cbSimStep === "submitting"}
+                  className="w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-40"
+                >
+                  <Crown className="w-4 h-4 text-slate-950" />
+                  <span>
+                    {!isAmountValid
+                      ? "Montant minimum de 30 € requis"
+                      : cbSimStep === "submitting"
+                      ? "Activation de votre statut..."
+                      : `Devenir Membre Fondateur (${finalDonationAmount} € minimum)`}
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             ) : (
-              /* Credit Card Mock Simulator */
-              <form onSubmit={handleSimulateCb} className="space-y-3 pt-2">
+              /* Simulation en 1-clic */
+              <div className="space-y-3 pt-1">
                 {cbSimStep === "success" ? (
-                  <div className={`border p-4 text-center space-y-2 rounded-xl ${
-                    isSobre ? isDark ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-200" : "bg-emerald-50 border-emerald-300 text-zinc-900 shadow-xs" :
-                    isWarm ? isDark ? "bg-[#1f281e] border-emerald-800 text-emerald-200 font-serif" : "bg-[#F5F8F2] border-emerald-300 text-amber-950 font-serif" :
-                    isCyber ? "bg-black border-cyan-400 text-[#00ffcc] font-mono" :
-                    isFun ? "bg-emerald-100 border-3 border-black rounded-2xl text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" :
-                    isDark ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-200" : "bg-emerald-50 border-emerald-300 text-emerald-950 shadow-xs"
-                  }`}>
-                    <Heart className={`w-8 h-8 text-rose-500 mx-auto animate-bounce ${isFun ? "fill-rose-500" : "fill-rose-500/20"}`} />
-                    <h4 className={`font-bold text-base ${
-                      isSobre ? isDark ? "text-emerald-300" : "text-emerald-900 font-extrabold" :
-                      isWarm ? isDark ? "text-emerald-300 font-serif" : "text-emerald-950 font-serif font-extrabold" :
-                      isCyber ? "text-[#00ffcc] font-mono" :
-                      isFun ? "text-black font-black uppercase font-sans" :
-                      isDark ? "text-emerald-300 font-sans" : "text-emerald-900 font-sans font-extrabold"
-                    }`}>Paiement Simulé Réussi !</h4>
-                    <p className={`text-xs leading-relaxed ${
-                      isSobre ? isDark ? "text-zinc-200" : "text-zinc-800 font-medium" :
-                      isWarm ? isDark ? "text-amber-200" : "text-amber-950 font-medium" :
-                      isCyber ? "text-cyan-300 font-mono" :
-                      isFun ? "text-black font-semibold" :
-                      isDark ? "text-slate-200 font-sans" : "text-slate-800 font-sans font-medium"
-                    }`}>
-                      Votre don fictif de <strong>{finalDonationAmount}€</strong> a été simulé.
-                      Pour un vrai soutien, veuillez utiliser le virement vers l'IBAN à gauche !
+                  <div className="border border-emerald-500/40 bg-emerald-950/30 p-4 rounded-xl text-center space-y-2">
+                    <Crown className="w-8 h-8 text-amber-400 mx-auto animate-bounce" />
+                    <h5 className="font-black text-sm text-emerald-300">
+                      Bienvenue parmi les Pionniers d'ALPHABETTE !
+                    </h5>
+                    <p className="text-xs text-slate-300">
+                      Votre statut <strong>Membre Fondateur #{founderSlotNumber}</strong> et votre <strong>Licence Perpétuelle</strong> sont désormais enregistrés.
                     </p>
                     <button
                       type="button"
                       onClick={() => setCbSimStep("idle")}
-                      className={`text-xs font-bold underline cursor-pointer transition-colors ${
-                        isSobre ? isDark ? "text-zinc-200 hover:text-white" : "text-zinc-950 hover:text-black font-extrabold" :
-                        isWarm ? isDark ? "text-amber-200 hover:text-white font-serif" : "text-amber-950 hover:text-black font-serif font-bold" :
-                        isCyber ? "text-[#00ffcc] hover:text-cyan-300 font-mono" :
-                        isFun ? "text-black font-sans font-black bg-yellow-350 border-2 border-black px-3 py-1 rounded-xl inline-block hover:translate-y-0.5" :
-                        isDark ? "text-cyan-300 hover:text-white font-sans" : "text-indigo-700 hover:text-indigo-950 font-extrabold"
-                      }`}
+                      className="text-xs text-amber-400 underline font-bold cursor-pointer"
                     >
-                      Refaire une simulation
+                      Modifier mon inscription
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <p className={`text-xs leading-normal ${
-                      isSobre ? isDark ? "text-zinc-300 font-sans" : "text-zinc-700 font-sans" :
-                      isWarm ? isDark ? "text-amber-200 font-serif" : "text-amber-900 font-serif" :
-                      isCyber ? "text-cyan-300 font-mono" :
-                      isFun ? "text-black font-semibold" :
-                      isDark ? "text-slate-200 font-sans" : "text-slate-700 font-sans font-medium"
-                    }`}>
-                      Simulez instantanément un don sécurisé par carte bancaire.
+                    <p className="text-xs opacity-75">
+                      Activez immédiatement votre profil Fondateur pour simuler ou valider l'enregistrement de votre licence perpétuelle dans l'écosystème.
                     </p>
-                    <div>
-                      <label className={getLabelClass()}>Numéro de carte</label>
-                      <input
-                        type="text"
-                        required
-                        className={getInputClass() + " font-mono"}
-                        placeholder="4973 8274 9182 0384"
-                        defaultValue="4973 8274 9182 0384"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className={getLabelClass()}>Date d'exp.</label>
-                        <input
-                          type="text"
-                          required
-                          className={getInputClass() + " text-center font-mono"}
-                          placeholder="12/28"
-                          defaultValue="08/29"
-                        />
-                      </div>
-                      <div>
-                        <label className={getLabelClass()}>CVC / Cryptogramme</label>
-                        <input
-                          type="password"
-                          required
-                          maxLength={3}
-                          className={getInputClass() + " text-center font-mono"}
-                          placeholder="382"
-                          defaultValue="382"
-                        />
-                      </div>
-                    </div>
-
                     <button
-                      type="submit"
-                      disabled={cbSimStep === "submitting"}
-                      className={getActionButtonClass()}
+                      type="button"
+                      onClick={handleActivateFounder}
+                      disabled={!isAmountValid || cbSimStep === "submitting"}
+                      className="w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-40"
                     >
-                      {cbSimStep === "submitting" ? "Simulation en cours..." : `Faire un don simulé de ${finalDonationAmount} €`}
+                      <Crown className="w-4 h-4 text-slate-950" />
+                      <span>
+                        {!isAmountValid
+                          ? "Montant minimum de 30 € requis"
+                          : cbSimStep === "submitting"
+                          ? "Enregistrement en cours..."
+                          : `Devenir Membre Fondateur (${finalDonationAmount} € minimum)`}
+                      </span>
                     </button>
                   </div>
                 )}
-              </form>
+              </div>
             )}
 
-            {/* QR Code section */}
+            {/* QR Code & Sécurité OVH */}
             <div className={`pt-4 flex items-center gap-3 border-t ${
-              isSobre ? isDark ? "border-zinc-800" : "border-zinc-200" :
-              isWarm ? isDark ? "border-amber-900/30" : "border-amber-900/15" :
-              isCyber ? "border-cyan-500/25" :
-              isFun ? "border-black" :
               isDark ? "border-slate-800" : "border-slate-200"
             }`}>
-              <div className={isFun ? "border-3 border-black p-1 rounded-xl bg-white shrink-0" : "bg-white p-1.5 rounded-lg border border-slate-300 dark:border-transparent shrink-0 shadow-xs"}>
-                <QrCode className="w-12 h-12 text-slate-950" />
+              <div className="bg-white p-1.5 rounded-lg border border-slate-300 shrink-0 shadow-xs">
+                <QrCode className="w-10 h-10 text-slate-950" />
               </div>
-              <p className={`text-xs leading-snug ${
-                isSobre ? isDark ? "text-zinc-300 font-sans" : "text-zinc-700 font-sans font-medium" :
-                isWarm ? isDark ? "text-amber-200 font-serif" : "text-amber-900 font-serif font-medium" :
-                isCyber ? "text-cyan-300 font-mono" :
-                isFun ? "text-black font-bold" :
-                isDark ? "text-slate-300 font-sans" : "text-slate-700 font-sans font-medium"
-              }`}>
-                Scannez pour accéder rapidement aux informations de virement SEPA depuis votre mobile.
+              <p className="text-[11px] opacity-75 leading-tight">
+                Scannez ce QR Code pour accéder directement aux coordonnées bancaires sécurisées depuis votre smartphone ou application bancaire.
               </p>
             </div>
           </div>

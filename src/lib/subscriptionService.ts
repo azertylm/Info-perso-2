@@ -1,8 +1,8 @@
-import { db, OperationType, handleFirestoreError, isFirebaseConfigured } from "./firebase";
+import { db, OperationType, handleFirestoreError, isFirebaseConfigured, auth } from "./firebase";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 
 export interface SubscriptionStatus {
-  status: "free" | "active" | "expired";
+  status: "free" | "active" | "expired" | "founder";
   planName: string;
   subscribedApps: string[];
   expiresAt: string | null;
@@ -10,6 +10,9 @@ export interface SubscriptionStatus {
   updatedAt: string;
   customerEmail: string;
   appSource: string;
+  isFounder?: boolean;
+  founderNumber?: number;
+  perpetual?: boolean;
 }
 
 // The 5 initial application variants + any custom remixed apps
@@ -34,7 +37,7 @@ const DEFAULT_FREE_STATUS = (email: string = ""): SubscriptionStatus => ({
  */
 export async function getSubscription(uid: string): Promise<SubscriptionStatus | null> {
   const localKey = `infoperso_subscription_${uid}`;
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser) {
     try {
       const stored = localStorage.getItem(localKey);
       return stored ? JSON.parse(stored) : null;
@@ -43,9 +46,10 @@ export async function getSubscription(uid: string): Promise<SubscriptionStatus |
     }
   }
 
-  const path = `subscriptions/${uid}`;
+  const targetUid = auth.currentUser.uid;
+  const path = `subscriptions/${targetUid}`;
   try {
-    const docRef = doc(db, "subscriptions", uid);
+    const docRef = doc(db, "subscriptions", targetUid);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data() as SubscriptionStatus;
@@ -68,7 +72,7 @@ export function listenToSubscription(
   userEmail: string = ""
 ): () => void {
   const localKey = `infoperso_subscription_${uid}`;
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser) {
     try {
       const stored = localStorage.getItem(localKey);
       onUpdate(stored ? JSON.parse(stored) : DEFAULT_FREE_STATUS(userEmail));
@@ -78,8 +82,9 @@ export function listenToSubscription(
     return () => {};
   }
 
-  const docRef = doc(db, "subscriptions", uid);
-  const path = `subscriptions/${uid}`;
+  const targetUid = auth.currentUser.uid;
+  const docRef = doc(db, "subscriptions", targetUid);
+  const path = `subscriptions/${targetUid}`;
   
   return onSnapshot(
     docRef,
@@ -109,6 +114,9 @@ export async function subscribeUser(
   const expires = new Date();
   expires.setMonth(expires.getMonth() + durationMonths);
 
+  const targetUid = auth.currentUser ? auth.currentUser.uid : uid;
+  const targetEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : email;
+
   const subscriptionData: SubscriptionStatus = {
     status: "active",
     planName,
@@ -116,24 +124,24 @@ export async function subscribeUser(
     expiresAt: expires.toISOString(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    customerEmail: email,
+    customerEmail: targetEmail,
     appSource
   };
 
-  const localKey = `infoperso_subscription_${uid}`;
+  const localKey = `infoperso_subscription_${targetUid}`;
   try {
     localStorage.setItem(localKey, JSON.stringify(subscriptionData));
   } catch (e) {
     console.warn("Local storage subscription save error:", e);
   }
 
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser) {
     return subscriptionData;
   }
 
-  const path = `subscriptions/${uid}`;
+  const path = `subscriptions/${targetUid}`;
   try {
-    const docRef = doc(db, "subscriptions", uid);
+    const docRef = doc(db, "subscriptions", targetUid);
     await setDoc(docRef, subscriptionData);
     return subscriptionData;
   } catch (error) {
@@ -146,6 +154,9 @@ export async function subscribeUser(
  * Simulate cancellation/expiry of the subscription for testing purposes.
  */
 export async function simulateExpiry(uid: string, email: string): Promise<SubscriptionStatus> {
+  const targetUid = auth.currentUser ? auth.currentUser.uid : uid;
+  const targetEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : email;
+
   const subscriptionData: SubscriptionStatus = {
     status: "expired",
     planName: "Abonnement Expiré",
@@ -153,24 +164,24 @@ export async function simulateExpiry(uid: string, email: string): Promise<Subscr
     expiresAt: new Date(Date.now() - 86400000).toISOString(), // expired yesterday
     createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
     updatedAt: new Date().toISOString(),
-    customerEmail: email,
+    customerEmail: targetEmail,
     appSource: "Simulation"
   };
 
-  const localKey = `infoperso_subscription_${uid}`;
+  const localKey = `infoperso_subscription_${targetUid}`;
   try {
     localStorage.setItem(localKey, JSON.stringify(subscriptionData));
   } catch (e) {
     console.warn("Local storage subscription save error:", e);
   }
 
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser) {
     return subscriptionData;
   }
 
-  const path = `subscriptions/${uid}`;
+  const path = `subscriptions/${targetUid}`;
   try {
-    const docRef = doc(db, "subscriptions", uid);
+    const docRef = doc(db, "subscriptions", targetUid);
     await setDoc(docRef, subscriptionData);
     return subscriptionData;
   } catch (error) {
@@ -183,21 +194,24 @@ export async function simulateExpiry(uid: string, email: string): Promise<Subscr
  * Reset/Delete subscription back to free.
  */
 export async function resetToFree(uid: string, email: string): Promise<SubscriptionStatus> {
-  const subscriptionData = DEFAULT_FREE_STATUS(email);
-  const localKey = `infoperso_subscription_${uid}`;
+  const targetUid = auth.currentUser ? auth.currentUser.uid : uid;
+  const targetEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : email;
+
+  const subscriptionData = DEFAULT_FREE_STATUS(targetEmail);
+  const localKey = `infoperso_subscription_${targetUid}`;
   try {
     localStorage.setItem(localKey, JSON.stringify(subscriptionData));
   } catch (e) {
     console.warn("Local storage subscription reset error:", e);
   }
 
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser) {
     return subscriptionData;
   }
 
-  const path = `subscriptions/${uid}`;
+  const path = `subscriptions/${targetUid}`;
   try {
-    const docRef = doc(db, "subscriptions", uid);
+    const docRef = doc(db, "subscriptions", targetUid);
     await setDoc(docRef, subscriptionData);
     return subscriptionData;
   } catch (error) {
@@ -206,3 +220,74 @@ export async function resetToFree(uid: string, email: string): Promise<Subscript
   }
 }
 
+/**
+ * Activate the official "Membre Fondateur — Licence Perpétuelle" plan.
+ * Minimum 30 €, guaranteed lifetime access across all apps.
+ */
+export async function activateFounderPlan(
+  uid: string,
+  email: string,
+  contributionAmount: number = 30,
+  donorName: string = ""
+): Promise<SubscriptionStatus> {
+  const memberNumber = Number(localStorage.getItem("infoperso_founder_number")) || 84;
+  const targetUid = auth.currentUser ? auth.currentUser.uid : uid;
+  const targetEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : email;
+
+  const founderData: SubscriptionStatus = {
+    status: "founder",
+    planName: "Pass Fondateur — Licence Perpétuelle 👑",
+    subscribedApps: CONNECTED_APPS,
+    expiresAt: null, // Lifetime!
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    customerEmail: targetEmail,
+    appSource: "Membre Fondateur Pionnier",
+    isFounder: true,
+    founderNumber: memberNumber,
+    perpetual: true
+  };
+
+  const localKey = `infoperso_subscription_${targetUid}`;
+  try {
+    localStorage.setItem(localKey, JSON.stringify(founderData));
+    localStorage.setItem("infoperso_is_founder", "true");
+    localStorage.setItem("infoperso_founder_number", String(memberNumber));
+    localStorage.setItem("alphabette_user_plan", "founder");
+    localStorage.setItem("alphabette_founder_amount", String(contributionAmount));
+    if (donorName) localStorage.setItem("infoperso_founder_name", donorName);
+
+    // Notify listeners across applet
+    window.dispatchEvent(new CustomEvent("alphabette_quota_updated"));
+    window.dispatchEvent(new CustomEvent("alphabette_plan_updated", { detail: founderData }));
+  } catch (e) {
+    console.warn("Local storage founder save error:", e);
+  }
+
+  if (!isFirebaseConfigured || !auth.currentUser) {
+    return founderData;
+  }
+
+  const path = `subscriptions/${targetUid}`;
+  try {
+    const docRef = doc(db, "subscriptions", targetUid);
+    await setDoc(docRef, founderData);
+    return founderData;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
+  }
+}
+
+/**
+ * Check if the user is currently recognized as a Founder Member.
+ */
+export function isFounderMember(): boolean {
+  try {
+    return localStorage.getItem("infoperso_is_founder") === "true" ||
+      localStorage.getItem("alphabette_user_plan") === "founder" ||
+      localStorage.getItem("alphabette_user_plan") === "FONDATEUR";
+  } catch {
+    return false;
+  }
+}

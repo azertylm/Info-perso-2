@@ -5046,11 +5046,11 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
 
   return (
     <div id="smart-news-feed" className="space-y-4 sm:space-y-6 landscape:space-y-3">
-      {/* 🚀 BARRE D'ACCÈS RAPIDE AUX ARTICLES & RÉGLAGES */}
+      {/* 🚀 BARRE D'ACCÈS RAPIDE AUX ARTICLES & RÉGLAGES (ULTRA-COMPACT 50% REDUCED) */}
       <div
-        className={`p-3 landscape:p-2 rounded-2xl border shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 landscape:gap-2 ${
+        className={`p-1.5 sm:p-2 rounded-xl border shadow-xs flex flex-col gap-1.5 ${
           isFun
-            ? "bg-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
+            ? "bg-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
             : isSobre
             ? isDark
               ? "bg-zinc-900 border-zinc-800 text-zinc-100"
@@ -5060,105 +5060,115 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
               ? "bg-[#251f1c] border-[#443831] text-[#f4ecd8]"
               : "bg-[#faf6ee] border-[#dfd3c3] text-[#3d332a]"
             : isCyber
-            ? "bg-zinc-950 border-cyan-500/40 text-cyan-400 font-mono shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+            ? "bg-zinc-950 border-cyan-500/40 text-cyan-400 font-mono"
             : isDark
             ? "bg-slate-900/90 border-slate-800 text-slate-100"
-            : "bg-white border-slate-200 text-slate-900 shadow-slate-100"
+            : "bg-white border-slate-200 text-slate-900"
         }`}
       >
-        {/* Search input */}
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 opacity-50" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && searchQuery.trim()) {
-                const clean = cleanInterestQuery(searchQuery);
-                if (clean) {
-                  handleAddInterest(clean);
-                  handleGenerateCustomArticle(clean);
+        {/* Search & Primary Row */}
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  const clean = cleanInterestQuery(searchQuery);
+                  if (clean) {
+                    handleAddInterest(clean);
+                    handleGenerateCustomArticle(clean);
+                  }
                 }
-              }
-            }}
-            placeholder="Rechercher ou coller un lien (ex: Le Figaro, Unitree, Tech, Robotique...)"
-            className={`w-full pl-9 pr-28 py-2 text-xs sm:text-sm rounded-xl border outline-none transition-all ${
-              isDark ? "bg-slate-950/60 border-slate-700/60 focus:border-cyan-500 text-slate-100" : "bg-slate-50 border-slate-300 focus:border-cyan-500 text-slate-900"
-            }`}
-          />
-          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {searchQuery && (
-              <>
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="opacity-50 hover:opacity-100 p-1"
-                  title="Effacer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-                {!isSearchQueryUrl && (
+              }}
+              placeholder="Rechercher ou coller un lien..."
+              className={`w-full pl-8 pr-24 py-1.5 text-xs rounded-lg border outline-none transition-all ${
+                isDark ? "bg-slate-950/60 border-slate-700/60 focus:border-cyan-500 text-slate-100" : "bg-slate-50 border-slate-300 focus:border-cyan-500 text-slate-900"
+              }`}
+            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {searchQuery && (
+                <>
                   <button
-                    onClick={() => handleSearchLiveNews(searchQuery)}
-                    disabled={isLoadingLiveRss}
-                    className="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                    title="Rechercher immédiatement dans la presse et flux RSS en direct live"
+                    onClick={() => setSearchQuery("")}
+                    className="opacity-50 hover:opacity-100 p-0.5"
+                    title="Effacer"
                   >
-                    <Radio className={`w-3 h-3 text-rose-100 ${isLoadingLiveRss ? "animate-spin" : ""}`} />
-                    <span>En direct</span>
+                    <X className="w-3 h-3" />
                   </button>
-                )}
-                <button
-                  onClick={() => {
-                    const clean = cleanInterestQuery(searchQuery);
-                    if (clean) {
-                      handleAddInterest(clean);
-                      handleGenerateCustomArticle(clean);
-                    }
-                  }}
-                  disabled={!!isGeneratingCustom}
-                  className="px-2 py-1 bg-cyan-500 hover:bg-cyan-400 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-all shadow-xs"
-                  title={isSearchQueryUrl ? "Importer et analyser l'article à partir de ce lien" : "Rechercher des faits récents et générer la dépêche avec l'IA"}
-                >
-                  {isSearchQueryUrl ? (
-                    <>
-                      <Link2 className="w-3 h-3 text-cyan-100" />
-                      <span>Importer</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3 h-3 text-cyan-100" />
-                      <span>Dépêche</span>
-                    </>
+                  {!isSearchQueryUrl && (
+                    <button
+                      onClick={() => handleSearchLiveNews(searchQuery)}
+                      disabled={isLoadingLiveRss}
+                      className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold rounded flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                    >
+                      <Radio className={`w-2.5 h-2.5 text-rose-100 ${isLoadingLiveRss ? "animate-spin" : ""}`} />
+                      <span>Live</span>
+                    </button>
                   )}
-                </button>
-              </>
-            )}
+                  <button
+                    onClick={() => {
+                      const clean = cleanInterestQuery(searchQuery);
+                      if (clean) {
+                        handleAddInterest(clean);
+                        handleGenerateCustomArticle(clean);
+                      }
+                    }}
+                    disabled={!!isGeneratingCustom}
+                    className="px-1.5 py-0.5 bg-cyan-500 hover:bg-cyan-400 text-white text-[10px] font-bold rounded flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                  >
+                    {isSearchQueryUrl ? (
+                      <>
+                        <Link2 className="w-2.5 h-2.5" />
+                        <span>Go</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>IA</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+
+          {/* 🌟 BOUTON RÉGLAGES MAJEUR */}
+          <button
+            onClick={() => setIsSettingsVoletOpen(true)}
+            className="compact-action-btn px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-xs shrink-0"
+            title="Réglages"
+          >
+            <Sliders className="w-3 h-3 text-cyan-200 shrink-0" />
+            <span className="font-extrabold">Réglages</span>
+            {activeFiltersCount > 0 && (
+              <span className="w-3.5 h-3.5 rounded-full bg-white text-indigo-700 text-[9px] font-black flex items-center justify-center shrink-0">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Action Controls */}
-        <div className="home-toolbar w-full flex items-center justify-between gap-2 flex-wrap pt-1.5">
-          {/* Left: Sort By & Photo / View Mode */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        {/* Action Controls & Filters Row (Ultra-compact) */}
+        <div className="home-toolbar w-full flex items-center justify-between gap-1 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             {/* Sort By */}
-            <div className="flex items-center rounded-xl p-0.5 border border-slate-700/50 bg-slate-800/30 text-xs">
+            <div className="flex items-center rounded-lg p-0.5 border border-slate-700/40 bg-slate-800/20 text-[11px]">
               <button
                 onClick={() => setSortBy("score")}
-                className={`compact-action-btn px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                  sortBy === "score"
-                    ? "bg-cyan-500 text-white shadow-xs"
-                    : "opacity-60 hover:opacity-100"
+                className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                  sortBy === "score" ? "bg-cyan-500 text-white" : "opacity-60 hover:opacity-100"
                 }`}
               >
-                Score IA
+                Score
               </button>
               <button
                 onClick={() => setSortBy("time")}
-                className={`compact-action-btn px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
-                  sortBy === "time"
-                    ? "bg-cyan-500 text-white shadow-xs"
-                    : "opacity-60 hover:opacity-100"
+                className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                  sortBy === "time" ? "bg-cyan-500 text-white" : "opacity-60 hover:opacity-100"
                 }`}
               >
                 Récents
@@ -5167,164 +5177,102 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 onClick={() => {
                   const next = !isLiveRssActive;
                   setIsLiveRssActive(next);
-                  if (next) {
-                    handleFetchLiveRss(false, true);
-                  }
+                  if (next) handleFetchLiveRss(false, true);
                 }}
-                className={`compact-action-btn px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  isLiveRssActive
-                    ? "bg-rose-600 text-white shadow-xs ring-2 ring-rose-400/40"
-                    : "opacity-75 hover:opacity-100 text-rose-500 dark:text-rose-400"
+                className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  isLiveRssActive ? "bg-rose-600 text-white" : "text-rose-500 opacity-80 hover:opacity-100"
                 }`}
-                title="Filtrer et afficher les dépêches en direct des flux RSS (Le Figaro, France Info, Le Monde...)"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
-                <span>Direct Live {liveRssCount > 0 ? `(${liveRssCount})` : ""}</span>
+                <span>Live {liveRssCount > 0 ? `(${liveRssCount})` : ""}</span>
               </button>
             </div>
 
-            {/* Bouton "En photo" pour basculer en mode photographie */}
+            {/* En photo */}
             <button
               id="btn-photo-mode"
               onClick={() => {
                 const next = !photoMode;
                 setPhotoMode(next);
-                try {
-                  localStorage.setItem("infoperso_photo_mode", String(next));
-                } catch {}
-                onNotify(
-                  next
-                    ? "📷 Mode « En photo » activé ! Illustrations photographiques libres de droit"
-                    : "📰 Mode texte standard activé"
-                );
+                try { localStorage.setItem("infoperso_photo_mode", String(next)); } catch {}
+                onNotify(next ? "📷 Mode « En photo » activé !" : "📰 Mode texte standard activé");
               }}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
                 photoMode
-                  ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-amber-500/20 ring-1 ring-amber-400/50"
-                  : isDark
-                  ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/80"
-                  : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                  ? "bg-amber-500 text-white border-amber-600"
+                  : isDark ? "bg-slate-800/80 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-300"
               }`}
-              title="Activer/Désactiver le mode photographique (illustrations libres de droit, 0 Mo de disque utilisé)"
             >
-              <Camera className={`w-3.5 h-3.5 ${photoMode ? "text-white" : "text-amber-500"}`} />
-              <span>En photo</span>
-              {photoMode && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+              <Camera className="w-3 h-3 text-amber-500" />
+              <span>Photo</span>
             </button>
 
             {/* View Mode */}
-            <div className="flex items-center rounded-xl p-0.5 border border-slate-700/50 bg-slate-800/30">
+            <div className="flex items-center rounded-lg p-0.5 border border-slate-700/40 bg-slate-800/20">
               <button
                 onClick={() => handleSetViewMode("grid")}
-                className={`compact-action-btn p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === "grid"
-                    ? "bg-cyan-500 text-white"
-                    : "opacity-60 hover:opacity-100"
-                }`}
-                title="Vue Grille (2 colonnes en taille standard)"
+                className={`p-1 rounded transition-all cursor-pointer ${viewMode === "grid" ? "bg-cyan-500 text-white" : "opacity-60"}`}
+                title="Grille"
               >
-                <Grid className="w-3.5 h-3.5" />
+                <Grid className="w-3 h-3" />
               </button>
               <button
                 onClick={() => handleSetViewMode("list")}
-                className={`compact-action-btn p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === "list"
-                    ? "bg-cyan-500 text-white"
-                    : "opacity-60 hover:opacity-100"
-                }`}
-                title="Vue 1 Colonne Large (Recommandé pour Big 2 / Grands caractères)"
+                className={`p-1 rounded transition-all cursor-pointer ${viewMode === "list" ? "bg-cyan-500 text-white" : "opacity-60"}`}
+                title="Liste"
               >
-                <List className="w-3.5 h-3.5" />
+                <List className="w-3 h-3" />
               </button>
             </div>
           </div>
 
-          {/* Right: Prominent Settings + Actions + Tools */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            {/* 🌟 BOUTON RÉGLAGES MAJEUR (Mis en valeur) */}
-            <button
-              onClick={() => setIsSettingsVoletOpen(true)}
-              className="compact-action-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/40 hover:scale-[1.02] active:scale-95 shrink-0"
-              title="Ouvrir les filtres et réglages personnalisés (Sources, algorithme, affichage, etc.)"
-            >
-              <Sliders className="w-3.5 h-3.5 text-cyan-200 shrink-0" />
-              <span className="font-extrabold tracking-wide">Réglages</span>
-              {activeFiltersCount > 0 ? (
-                <span className="w-4 h-4 rounded-full bg-white text-indigo-700 text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
-                  {activeFiltersCount}
-                </span>
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" title="Algorithme personnalisé actif" />
-              )}
-            </button>
-
+          <div className="flex items-center gap-1 flex-wrap">
             {/* Générer 20 articles */}
             <button
               onClick={() => handleBulkGenerateIAArticles(false)}
               disabled={isBulkGenerating}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer shadow-xs ${
-                isBulkGenerating
-                  ? "opacity-75 cursor-not-allowed bg-slate-800 text-slate-400 border-slate-700"
-                  : isDark
-                  ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40"
-                  : "bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-300"
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
+                isBulkGenerating ? "opacity-75 cursor-not-allowed bg-slate-800 text-slate-400" : "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
               }`}
-              title="Rechercher des faits d'actualité vérifiés et régénérer 20 articles complets avec l'IA"
             >
-              {isBulkGenerating ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse shrink-0" />
-              )}
-              <span>{isBulkGenerating ? "Génération..." : "Générer 20 articles"}</span>
+              {isBulkGenerating ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" /> : <Sparkles className="w-3 h-3 text-cyan-400" />}
+              <span>20 Articles</span>
             </button>
 
-            {/* Quick Secondary Tools: Podcast, RSS, Source, Foldable */}
+            {/* Flash 90s */}
             <button
               onClick={() => setShowPodcastModal(true)}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all border shadow-xs ${
-                isDark
-                  ? "bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-white"
-                  : "bg-white hover:bg-zinc-100 border-zinc-300 text-zinc-900"
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border ${
+                isDark ? "bg-zinc-900 border-zinc-700 text-white" : "bg-white border-zinc-300 text-zinc-900"
               }`}
-              title="Flash 90 secondes (5 dossiers d'actualité synthétiques, régénérables en 1 clic)"
             >
-              <Radio className="w-3.5 h-3.5 shrink-0 opacity-80" />
+              <Radio className="w-3 h-3 opacity-80" />
               <span>Flash 90s</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded font-mono shrink-0 font-bold border border-zinc-400/40">5 dossiers</span>
             </button>
 
+            {/* Flux RSS */}
             <button
               onClick={() => setShowRssModal(true)}
-              className={`compact-action-btn px-2 py-1 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all border shadow-xs ${
-                isDark
-                  ? "bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-300 hover:text-amber-200"
-                  : "bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800"
+              className={`px-1.5 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border ${
+                isDark ? "bg-amber-500/15 border-amber-500/40 text-amber-300" : "bg-amber-50 border-amber-300 text-amber-800"
               }`}
-              title="Gérer les flux RSS et importer OPML"
             >
-              <Rss className="w-3 h-3 text-amber-400 shrink-0" />
-              <span>Flux RSS</span>
+              <Rss className="w-2.5 h-2.5 text-amber-400" />
+              <span>RSS</span>
             </button>
 
+            {/* Cache Workbox */}
             <button
               onClick={() => {
                 const meta = saveArticlesOffline(articles);
                 refreshMeta();
-                onNotify(`💾 ${meta.count} articles et photos synchronisés dans le cache Workbox (${meta.sizeKb} Ko) pour le métro, l'avion ou zone blanche !`);
+                onNotify(`💾 ${meta.count} articles en cache (${meta.sizeKb} Ko)`);
               }}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer shadow-xs ${
-                !isOnline
-                  ? "bg-amber-500/20 border-amber-500/50 text-amber-300 animate-pulse font-bold"
-                  : isDark
-                  ? "bg-slate-800/70 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white"
-                  : "bg-white hover:bg-slate-50 border-slate-300 text-slate-700 shadow-xs"
+              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
+                !isOnline ? "bg-amber-500/20 border-amber-500 text-amber-300" : isDark ? "bg-slate-800/70 border-slate-700 text-slate-300" : "bg-white border-slate-300 text-slate-700"
               }`}
-              title={isOnline ? "Mettre en cache hors-ligne Workbox (articles, analyses et photos)" : "Mode hors-ligne actif (données issues du cache Workbox)"}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400 animate-ping"}`} />
-              <span>{isOnline ? "Cache Workbox" : "Hors-Ligne"}</span>
-              <span className="text-[10px] opacity-80 font-mono">({cacheMeta.count})</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400"}`} />
+              <span>Cache</span>
             </button>
 
             <FoldableBar
@@ -7184,7 +7132,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                   )}
 
                   {/* PIPELINE ÉDITORIAL COMPLET (« Trier l'information avant de la subir ») */}
-                  {(selectedArticle.faits_verifies || selectedArticle.debat_nuance || selectedArticle.script_podcast || selectedArticle.source_mention) && (
+                  {(selectedArticle.faits_verifies || selectedArticle.debat_nuance || selectedArticle.source_mention) && (
                     <div className={`p-3.5 sm:p-4 rounded-xl border space-y-3 transition-all ${
                       isDark ? "bg-slate-900/90 border-indigo-900/50 text-slate-200" : "bg-white border-indigo-200 text-slate-900 shadow-xs"
                     }`}>
@@ -7277,34 +7225,6 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                               « {selectedArticle.debat_nuance.question_discernement} »
                             </div>
                           )}
-                        </div>
-                      )}
-
-                      {/* 3. Chronique Audio 90s */}
-                      {selectedArticle.script_podcast && (
-                        <div className={`p-2.5 rounded-lg border space-y-2 text-xs ${
-                          isDark ? "bg-zinc-800/40 border-zinc-700/40" : "bg-amber-50/50 border-amber-200/80"
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                              <Volume2 className="w-3.5 h-3.5" />
-                              <span>Chronique Audio Oralisée (90 secondes)</span>
-                            </div>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(selectedArticle.script_podcast || "");
-                                if (onNotify) onNotify("Script de la chronique audio copié !");
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 hover:border-indigo-400"
-                              title="Copier le script audio"
-                            >
-                              <Copy className="w-3 h-3" />
-                              <span>Copier</span>
-                            </button>
-                          </div>
-                          <p className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap opacity-90">
-                            {selectedArticle.script_podcast}
-                          </p>
                         </div>
                       )}
                     </div>
@@ -9089,12 +9009,11 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
               <button
                 onClick={() => setShowAllProposalsModal(false)}
                 type="button"
-                className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
-                title="Quitter les propositions (Échap)"
-                aria-label="Quitter"
+                className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+                title="Fermer (Échap)"
+                aria-label="Fermer"
               >
-                <X className="w-4 h-4 stroke-[3]" />
-                <span className="font-extrabold text-xs">Quitter</span>
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 

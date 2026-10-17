@@ -37,14 +37,35 @@ export default function AlphabetteQuotaExceededModal({
     return () => clearInterval(interval);
   }, [isOpen]);
 
+  // Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const isDark = themeMode === "dark";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
+
       <div
-        className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden transition-all ${
+        onClick={(e) => e.stopPropagation()}
+        className={`relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden transition-all cursor-default ${
           isDark
             ? "bg-slate-900 border-amber-500/30 text-white shadow-amber-950/30"
             : "bg-white border-amber-300 text-slate-900 shadow-xl"
@@ -70,9 +91,12 @@ export default function AlphabetteQuotaExceededModal({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+              type="button"
+              className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-amber-500/30 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+              title="Fermer (Échap)"
+              aria-label="Fermer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>

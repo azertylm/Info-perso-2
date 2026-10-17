@@ -40,6 +40,7 @@ import {
   RelatedWord
 } from "../lib/semanticExplorer";
 import { CULTURE_SHORTCUTS } from "./CultureBarAndModal";
+import { KeywordManager } from "./KeywordManager";
 
 interface SettingsVoletProps {
   isOpen: boolean;
@@ -147,6 +148,7 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
 
   // Local search filter for tags
   const [tagSearchQuery, setTagSearchQuery] = useState("");
+  const [isKeywordManagerOpen, setIsKeywordManagerOpen] = useState(false);
   const [tagGroupingMode, setTagGroupingMode] = useState<"rubriques" | "frequence">("rubriques");
 
   // Pinned tags (Solution 3: Favoris ⭐)
@@ -431,9 +433,17 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
   const activeKeywordsCount = selectedTrendTags.length + (clickedTrendTag ? 1 : 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[160] flex items-center justify-center p-2.5 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       <div
-        className={`w-full max-w-4xl max-h-[92vh] settings-modal-container flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
+        onClick={(e) => e.stopPropagation()}
+        className={`relative w-full max-w-4xl max-h-[92vh] settings-modal-container flex flex-col rounded-2xl border shadow-2xl overflow-hidden cursor-default ${
           isFun
             ? "bg-amber-50 border-4 border-black text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
             : isSobre
@@ -453,7 +463,7 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
       >
         {/* Modal Header */}
         <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b ${
+          className={`flex items-center justify-between px-3.5 sm:px-5 py-3 border-b gap-2.5 ${
             isFun
               ? "border-black bg-cyan-300"
               : isSobre
@@ -465,39 +475,43 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
               : isDark ? "border-slate-800 bg-slate-900/90" : "border-slate-100 bg-slate-50"
           }`}
         >
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl ${isFun ? "bg-white border-2 border-black" : "bg-cyan-500/10 text-cyan-400"}`}>
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className={`p-2 rounded-xl shrink-0 ${isFun ? "bg-white border-2 border-black" : "bg-cyan-500/10 text-cyan-400"}`}>
               <Sliders className="w-5 h-5 text-cyan-400" />
             </div>
-            <div>
-              <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                Réglages, Mots-clés &amp; Personnalisation
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-sm sm:text-base leading-tight truncate">
+                  Réglages &amp; Mots-clés
+                </h3>
                 {activeFiltersCount > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500 text-white font-semibold">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500 text-white font-semibold shrink-0">
                     {activeFiltersCount} actif{activeFiltersCount > 1 ? "s" : ""}
                   </span>
                 )}
-              </h3>
-              <p className="text-xs opacity-75">
-                Filtrage thématique par rebond sémantique, packs prêts à l'emploi et algorithme sur mesure.
+              </div>
+              <p className="text-[11px] sm:text-xs opacity-75 truncate mt-0.5 max-w-md">
+                Filtrage thématique, rebond sémantique et personnalisation.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={onClose}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Fermer les réglages pour observer le flux en direct"
             >
-              <Eye className="w-3.5 h-3.5" />
+              <Eye className="w-4 h-4" />
               <span className="hidden sm:inline">Voir le flux</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              type="button"
+              className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95"
+              title="Fermer (Échap)"
               aria-label="Fermer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>
@@ -599,7 +613,7 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
 
         {/* Tab Navigation */}
         <div
-          className={`flex border-b overflow-x-auto px-4 gap-1 ${
+          className={`flex border-b overflow-x-auto px-2 sm:px-4 gap-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
             isFun
               ? "border-black bg-amber-100"
               : isSobre
@@ -1354,6 +1368,12 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
 
                     <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                       <button
+                        onClick={() => setIsKeywordManagerOpen(true)}
+                        className="px-2.5 py-1 text-xs rounded-lg font-medium bg-indigo-600 text-white cursor-pointer hover:bg-indigo-500"
+                      >
+                        Gérer Mots-Clés (800)
+                      </button>
+                      <button
                         onClick={() => setTagGroupingMode("rubriques")}
                         className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                           tagGroupingMode === "rubriques"
@@ -1375,6 +1395,7 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
                       </button>
                     </div>
                   </div>
+                  {isKeywordManagerOpen && <KeywordManager onClose={() => setIsKeywordManagerOpen(false)} />}
 
                   {/* Tags Display: Either Grouped by Rubriques or Flat by Frequency (Solutions 1 & 4) */}
                   {tagGroupingMode === "rubriques" ? (

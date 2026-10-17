@@ -36,7 +36,6 @@ interface MultiChatProps {
   displayMode?: "sobre" | "pro" | "warm" | "cyber" | "fun";
   themeMode?: "light" | "dark";
   onNavigateToTab?: (tab: any) => void;
-  onOpenVault?: () => void;
   onOpenWorkshop?: () => void;
   onOpenPricing?: () => void;
   onOpenApiKeyModal?: () => void;
@@ -59,7 +58,6 @@ export default function MultiChat({
   displayMode = "pro",
   themeMode = "dark",
   onNavigateToTab,
-  onOpenVault,
   onOpenWorkshop,
   onOpenPricing,
   onOpenApiKeyModal,
@@ -262,13 +260,7 @@ export default function MultiChat({
           break;
         }
 
-        case "open_vault": {
-          if (onOpenVault) {
-            onOpenVault();
-            return { executed: true, message: "Coffre-fort Zero-Knowledge ouvert." };
-          }
-          break;
-        }
+
 
         case "open_workshop": {
           if (onOpenWorkshop) {
@@ -344,9 +336,7 @@ export default function MultiChat({
     if (lower.includes("simulateur") || lower.includes("rentabilit") || lower.includes("point mort")) {
       return { tool: "navigate_to_tab", args: { tab: "simulateur" } };
     }
-    if (lower.includes("coffre") || lower.includes("zero knowledge") || lower.includes("vault")) {
-      return { tool: "open_vault", args: {} };
-    }
+
     if (lower.includes("atelier") || lower.includes("chantier") || lower.includes("intervention")) {
       return { tool: "open_workshop", args: {} };
     }
@@ -768,19 +758,7 @@ export default function MultiChat({
                 <ArrowRight className="w-3 h-3 text-slate-500" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  triggerSendMessage("Ouvre le coffre-fort numérique Zero-Knowledge.");
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/40 text-slate-300 flex items-center justify-between transition-all"
-              >
-                <span className="flex items-center gap-2">
-                  <FolderLock className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Coffre-fort Zero-Knowledge</span>
-                </span>
-                <ArrowRight className="w-3 h-3 text-slate-500" />
-              </button>
+
 
               <button
                 type="button"

@@ -385,9 +385,7 @@ export function SpotlightCommandBar({
   // Commands options
   const systemCommands = [
     { name: "Aller au Flux d'Actualités", action: () => { onNavigate("flux"); onClose(); }, category: "Navigation" },
-    { name: "Simulateur de Rentabilité & Seuil de Rentabilité", action: () => { onNavigate("simulateur"); onClose(); }, category: "Finance" },
     { name: "Ouvrir le Coffre-Fort Zero-Knowledge (AES-256)", action: () => { if (onOpenVault) onOpenVault(); onClose(); }, category: "Sécurité" },
-    { name: "L'Œil de l'Atelier (Interventions & photos offline)", action: () => { if (onOpenWorkshop) onOpenWorkshop(); onClose(); }, category: "Artisanat" },
     { name: "Ouvrir le Chat Curateur IA", action: () => { onNavigate("chat"); onClose(); }, category: "Navigation" },
     { name: "Soutenir & Faire un Don", action: () => { onNavigate("donations"); onClose(); }, category: "Navigation" },
     { name: "Éditer les clés API", action: () => { onNavigate("keys"); onClose(); }, category: "Navigation" },

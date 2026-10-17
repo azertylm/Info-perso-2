@@ -235,8 +235,29 @@ export interface AlphabetteSuiteConfig {
     rgpd: string;
     privacy: string;
     exclusiveProvider: string;
-    localServer: string;
   };
+}
+
+export type UserPlanType = "trial" | "free" | "solo" | "pass_alphabette" | "founder" | "FONDATEUR";
+
+export interface FounderOfferConfig {
+  title: string;
+  subtitle: string;
+  minAmount: number;
+  totalSlots: number;
+  allocatedSlots: number;
+  isPerpetual: boolean;
+  perks: string[];
+}
+
+export interface FounderStatus {
+  isFounder: boolean;
+  memberNumber: number;
+  totalSlots: number;
+  amountPaid: number;
+  perpetualAccess: boolean;
+  activatedAt: string;
+  donorName?: string;
 }
 
 // Modèles IA de l'écosystème ALPHABETTE (Palier offert Google Gen AI + BYOK multi-fournisseurs)

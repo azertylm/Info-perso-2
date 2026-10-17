@@ -30,14 +30,17 @@ service cloud.firestore {
 
     // Validation Blueprints (Pillar 2)
     function isValidSubscription(data) {
-      return data.status is string && data.status in ['free', 'active', 'expired']
+      return data.status is string && data.status in ['free', 'active', 'expired', 'founder']
         && data.planName is string && data.planName.size() <= 150
         && data.subscribedApps is list && data.subscribedApps.size() <= 20
         && (data.expiresAt == null || (data.expiresAt is string && data.expiresAt.size() <= 100))
         && data.createdAt is string && data.createdAt.size() <= 100
         && data.updatedAt is string && data.updatedAt.size() <= 100
         && data.customerEmail is string && data.customerEmail.size() <= 200
-        && data.appSource is string && data.appSource.size() <= 150;
+        && data.appSource is string && data.appSource.size() <= 150
+        && (!('isFounder' in data) || data.isFounder is bool)
+        && (!('founderNumber' in data) || (data.founderNumber is int && data.founderNumber >= 1 && data.founderNumber <= 500))
+        && (!('perpetual' in data) || data.perpetual is bool);
     }
 
     function isValidProposedArticle(data) {
@@ -100,11 +103,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.uid == userId 
                     && isValidId(userId)
                     && isValidSubscription(incoming())
-                    && incoming().customerEmail == request.auth.token.email;
+                    && (!('email' in request.auth.token) || request.auth.token.email == null || incoming().customerEmail == request.auth.token.email);
       allow update: if isSignedIn() && request.auth.uid == userId
                     && isValidId(userId)
                     && isValidSubscription(incoming())
-                    && incoming().customerEmail == existing().customerEmail
+                    && (!('customerEmail' in existing()) || incoming().customerEmail == existing().customerEmail)
                     && incoming().createdAt == existing().createdAt;
       allow delete: if false; // Subscriptions are immortal
     }

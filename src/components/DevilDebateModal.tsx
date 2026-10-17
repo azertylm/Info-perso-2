@@ -177,11 +177,12 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
           onClose();
         }
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
     >
+
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-2xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
+        className={`relative w-full max-w-2xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-slate-900 border-rose-500/30 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
@@ -205,16 +206,15 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
               </p>
             </div>
           </div>
-          {/* Bouton Quitter ultra-visible avec croix */}
+          {/* Bouton Fermer avec croix */}
           <button
             onClick={onClose}
             type="button"
-            className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
-            title="Quitter l'Avocat du Diable (Échap)"
-            aria-label="Quitter l'Avocat du Diable"
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+            title="Fermer (Échap)"
+            aria-label="Fermer"
           >
-            <X className="w-4 h-4 stroke-[3]" />
-            <span className="font-extrabold text-xs">Quitter</span>
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 
@@ -312,11 +312,11 @@ Réponds avec concision (150 à 200 mots maximum), mordant et arguments factuels
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-2 rounded-xl border border-rose-500/50 bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-            title="Quitter l'Avocat du Diable"
+            className="p-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer shrink-0 flex items-center justify-center active:scale-95"
+            title="Fermer"
+            aria-label="Fermer"
           >
             <X className="w-4 h-4 stroke-[2.5]" />
-            <span className="hidden xs:inline">Quitter</span>
           </button>
           <input
             type="text"

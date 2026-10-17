@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   X, Award, BarChart3, Clock, Share2, HelpCircle, 
@@ -76,6 +76,18 @@ export default function UserProfileDrawer({
   const isPro = displayMode === "pro";
   const isDark = themeMode === "dark";
 
+  // Escape key to close drawer
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Simulated subscription states
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [cardNumber, setCardNumber] = useState("");
@@ -89,8 +101,21 @@ export default function UserProfileDrawer({
   const pointsInCurrentLevel = curiosityScore % pointsPerLevel;
   const progressPercent = Math.min((pointsInCurrentLevel / pointsPerLevel) * 100, 100);
 
+  const isFounder = subscription?.isFounder || 
+    subscription?.status === "founder" || 
+    localStorage.getItem("infoperso_is_founder") === "true" ||
+    localStorage.getItem("alphabette_user_plan") === "founder" ||
+    localStorage.getItem("alphabette_user_plan") === "FONDATEUR";
+
+  const founderNum = Number(localStorage.getItem("infoperso_founder_number")) || 84;
+
+  const effectiveUnlockedBadges = isFounder 
+    ? Array.from(new Set([...unlockedBadges, "fondateur-pionnier"])) 
+    : unlockedBadges;
+
   // Pre-configured Badges definitions
   const ALL_BADGES: Badge[] = [
+    { id: "fondateur-pionnier", name: "Fondateur Pionnier", description: "Membre Fondateur officiel — Licence Perpétuelle garantie à vie.", category: "Fondateur", icon: "👑", unlockedAt: 0 },
     { id: "ia-explorer", name: "Pionnier de l'IA", description: "A lu 5 articles de la catégorie IA.", category: "IA", icon: "🤖", unlockedAt: 0 },
     { id: "tech-enthusiast", name: "Technophile", description: "A lu 5 articles de la catégorie Technologie.", category: "Technologie", icon: "⚡", unlockedAt: 0 },
     { id: "local-citizen", name: "Explorateur Local", description: "A lu 3 articles d'actualités Locales.", category: "Local", icon: "📍", unlockedAt: 0 },
@@ -200,7 +225,7 @@ export default function UserProfileDrawer({
             animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black z-50 cursor-pointer"
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs z-[160] cursor-pointer"
           />
 
           {/* SLIDING PANEL */}
@@ -209,33 +234,30 @@ export default function UserProfileDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 220 }}
-            className={`fixed top-0 right-0 bottom-0 w-full max-w-md z-50 flex flex-col shadow-2xl overflow-y-auto ${getDrawerBg()}`}
+            className={`fixed top-0 right-0 bottom-0 w-full max-w-md z-[160] flex flex-col shadow-2xl overflow-y-auto ${getDrawerBg()}`}
           >
             {/* PANEL HEADER */}
-            <div className={`p-5 flex items-center justify-between border-b ${
+            <div className={`p-4 sm:p-5 flex items-center justify-between border-b gap-2 ${
               isSobre ? "border-zinc-200" :
               isWarm ? "border-amber-900/10" :
               isCyber ? "border-cyan-500/20" :
               isFun ? "border-3 border-black bg-cyan-300" :
               "border-slate-800"
             }`}>
-              <div className="flex items-center gap-2">
-                <Flame className={`w-5 h-5 ${isCyber ? "text-pink-500" : isFun ? "text-black fill-yellow-400" : isWarm ? "text-amber-800" : "text-indigo-400"}`} />
-                <h2 className={`font-bold text-lg ${isFun ? "font-black uppercase tracking-tight italic" : ""}`}>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Flame className={`w-5 h-5 shrink-0 ${isCyber ? "text-pink-500" : isFun ? "text-black fill-yellow-400" : isWarm ? "text-amber-800" : "text-indigo-400"}`} />
+                <h2 className={`font-bold text-base sm:text-lg truncate ${isFun ? "font-black uppercase tracking-tight italic" : ""}`}>
                   Mon Profil Lecteur
                 </h2>
               </div>
               <button
                 onClick={onClose}
-                className={`p-1.5 rounded-lg cursor-pointer hover:opacity-80 transition-all ${
-                  isSobre ? "bg-zinc-100" :
-                  isWarm ? "bg-amber-150/50" :
-                  isCyber ? "border border-cyan-400/50 text-cyan-400" :
-                  isFun ? "bg-white border-2 border-black" :
-                  "bg-slate-900 border border-slate-800"
-                }`}
+                type="button"
+                className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+                title="Fermer (Échap)"
+                aria-label="Fermer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 

@@ -74,20 +74,54 @@ export function normalizeFrenchPhonetics(rawText: string): string {
 }
 
 /**
+ * Balisage SSML Broadcast Radio Professionnel (Proposition 3) :
+ * Conçu spécifiquement pour les voix Google Cloud Studio / Journey et Gemini TTS.
+ * Injecte des micro-respirations, des pauses rythmées et des emphases naturelles.
+ */
+export function buildRadioSsml(text: string): string {
+  if (!text) return "<speak></speak>";
+
+  // 1. Normalisation phonétique intégrale
+  const clean = normalizeFrenchPhonetics(text);
+
+  // 2. Échappement des entités XML sensibles
+  const escaped = clean
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+
+  // 3. Découpage en phrases pour injection de balises prosodiques
+  const sentences = escaped.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+
+  if (sentences.length === 0) {
+    return `<speak>${escaped}</speak>`;
+  }
+
+  // Première phrase avec emphase modérée (attaque radio d'accroche)
+  const firstSentence = `<emphasis level="moderate">${sentences[0]}</emphasis>`;
+  
+  // Phrases suivantes avec pauses respiratoires de 220ms
+  const remaining = sentences.slice(1).map((s, idx) => {
+    // Si la phrase contient un chiffre clé, pause légèrement plus longue
+    const pauseTime = /\d+/.test(s) ? "240ms" : "200ms";
+    return `<break time="${pauseTime}"/><s>${s}</s>`;
+  }).join(" ");
+
+  return `<speak><s>${firstSentence}</s> ${remaining}</speak>`;
+}
+
+/**
  * Injection de prosodie dynamique (Solution 9) :
  * Ajoute des micro-pauses respiratoires naturelles pour éviter l'élocution robotique continue.
  */
 export function injectSpeechProsody(text: string, isSSML: boolean = false): string {
-  const normalized = normalizeFrenchPhonetics(text);
-
   if (isSSML) {
-    // Balisage SSML standard pour moteurs neuronaux compatibles
-    const ssmlContent = normalized
-      .replace(/\.\s+/g, '.<break time="160ms"/> ')
-      .replace(/\:\s+/g, ' :<break time="120ms"/> ')
-      .replace(/\;\s+/g, ' ;<break time="100ms"/> ');
-    return `<speak>${ssmlContent}</speak>`;
+    return buildRadioSsml(text);
   }
+
+  const normalized = normalizeFrenchPhonetics(text);
 
   // Pour le moteur Web Speech standard :
   // L'insertion stratégique d'ellipses ou de micro-virgules force le synthétiseur

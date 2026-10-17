@@ -28,6 +28,7 @@ import {
   RotateCw,
   Download,
   Maximize2,
+  Minimize2,
   FileText,
   HardDrive,
   RefreshCw,
@@ -62,9 +63,14 @@ interface DailyPodcastModalProps {
   geminiApiKey?: string;
 }
 
-// Web Audio API Sound generator for radio studio jingles (No external sound files required)
+// Web Audio API Sound generator for radio studio jingles and ambient studio bed
 class RadioAudioEngine {
   private ctx: AudioContext | null = null;
+  private bedOsc1: OscillatorNode | null = null;
+  private bedOsc2: OscillatorNode | null = null;
+  private bedGain: GainNode | null = null;
+  private bedFilter: BiquadFilterNode | null = null;
+  private isBedActive = false;
 
   private initCtx() {
     if (!this.ctx && typeof window !== "undefined") {
@@ -74,7 +80,7 @@ class RadioAudioEngine {
       }
     }
     if (this.ctx && this.ctx.state === "suspended") {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
   }
 
@@ -158,6 +164,125 @@ class RadioAudioEngine {
       });
     } catch {
       // Ignore
+    }
+  }
+
+  // Atmospheric radio newsroom background bed (Tapis sonore subtil studio)
+  startRadioBed() {
+    try {
+      this.initCtx();
+      if (!this.ctx || this.isBedActive) return;
+      const now = this.ctx.currentTime;
+
+      this.bedFilter = this.ctx.createBiquadFilter();
+      this.bedFilter.type = "lowpass";
+      this.bedFilter.frequency.setValueAtTime(280, now);
+
+      this.bedGain = this.ctx.createGain();
+      this.bedGain.gain.setValueAtTime(0.0001, now);
+      this.bedGain.gain.linearRampToValueAtTime(0.022, now + 0.6);
+
+      this.bedOsc1 = this.ctx.createOscillator();
+      this.bedOsc1.type = "sine";
+      this.bedOsc1.frequency.setValueAtTime(87.31, now); // F2 warm sub
+
+      this.bedOsc2 = this.ctx.createOscillator();
+      this.bedOsc2.type = "triangle";
+      this.bedOsc2.frequency.setValueAtTime(130.81, now); // C3 mellow 5th
+
+      this.bedOsc1.connect(this.bedFilter);
+      this.bedOsc2.connect(this.bedFilter);
+      this.bedFilter.connect(this.bedGain);
+      this.bedGain.connect(this.ctx.destination);
+
+      this.bedOsc1.start(now);
+      this.bedOsc2.start(now);
+      this.isBedActive = true;
+    } catch {
+      // AudioContext policy
+    }
+  }
+
+  duckRadioBed(activeSpeech: boolean) {
+    if (!this.ctx || !this.bedGain || !this.isBedActive) return;
+    try {
+      const now = this.ctx.currentTime;
+      const targetVolume = activeSpeech ? 0.016 : 0.038;
+      this.bedGain.gain.cancelScheduledValues(now);
+      this.bedGain.gain.linearRampToValueAtTime(targetVolume, now + 0.3);
+    } catch {}
+  }
+
+  stopRadioBed() {
+    if (!this.ctx || !this.isBedActive) return;
+    try {
+      const now = this.ctx.currentTime;
+      if (this.bedGain) {
+        this.bedGain.gain.linearRampToValueAtTime(0.0001, now + 0.3);
+      }
+      setTimeout(() => {
+        try {
+          this.bedOsc1?.stop();
+          this.bedOsc2?.stop();
+          this.bedOsc1?.disconnect();
+          this.bedOsc2?.disconnect();
+        } catch {}
+        this.bedOsc1 = null;
+        this.bedOsc2 = null;
+        this.bedGain = null;
+        this.bedFilter = null;
+        this.isBedActive = false;
+      }, 350);
+    } catch {
+      this.isBedActive = false;
+    }
+  }
+
+  // Proposition 5 : Chaîne de Mastering Studio Radio (Web Audio API Broadcast)
+  private masterCompressor: DynamicsCompressorNode | null = null;
+  private presenceFilter: BiquadFilterNode | null = null;
+  private warmthFilter: BiquadFilterNode | null = null;
+
+  initMastering() {
+    this.initCtx();
+    if (!this.ctx || this.masterCompressor) return;
+    try {
+      const now = this.ctx.currentTime;
+      // 1. Rondeur et présence dans le bas du spectre (+2 dB à 180 Hz)
+      this.warmthFilter = this.ctx.createBiquadFilter();
+      this.warmthFilter.type = "lowshelf";
+      this.warmthFilter.frequency.setValueAtTime(180, now);
+      this.warmthFilter.gain.setValueAtTime(2.0, now);
+
+      // 2. Clarté d'articulation et présence vocale (+2.5 dB à 3200 Hz)
+      this.presenceFilter = this.ctx.createBiquadFilter();
+      this.presenceFilter.type = "peaking";
+      this.presenceFilter.frequency.setValueAtTime(3200, now);
+      this.presenceFilter.Q.setValueAtTime(1.2, now);
+      this.presenceFilter.gain.setValueAtTime(2.5, now);
+
+      // 3. Compresseur Broadcast Radio pour une voix pleine et sans à-coups
+      this.masterCompressor = this.ctx.createDynamicsCompressor();
+      this.masterCompressor.threshold.setValueAtTime(-20, now);
+      this.masterCompressor.knee.setValueAtTime(10, now);
+      this.masterCompressor.ratio.setValueAtTime(3.5, now);
+      this.masterCompressor.attack.setValueAtTime(0.003, now);
+      this.masterCompressor.release.setValueAtTime(0.25, now);
+
+      this.warmthFilter.connect(this.presenceFilter);
+      this.presenceFilter.connect(this.masterCompressor);
+      this.masterCompressor.connect(this.ctx.destination);
+    } catch {}
+  }
+
+  attachAudioElement(audio: HTMLAudioElement) {
+    try {
+      this.initMastering();
+      if (!this.ctx || !this.warmthFilter) return;
+      const source = this.ctx.createMediaElementSource(audio);
+      source.connect(this.warmthFilter);
+    } catch {
+      // Audio element déjà rattaché ou lecture directe
     }
   }
 }
@@ -317,6 +442,29 @@ export const DailyPodcastModal: React.FC<DailyPodcastModalProps> = ({
   const [audioLatency, setAudioLatency] = useState<{ ms: number; source: string } | null>(null);
   const [isTeleprompterOpen, setIsTeleprompterOpen] = useState(false);
   const [cacheStats, setCacheStats] = useState<{ count: number; totalSizeKB: number } | null>(null);
+
+  // Mode compact flottant & Tapis Sonore Studio
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [radioBedEnabled, setRadioBedEnabled] = useState(true);
+  const [continuousMode, setContinuousMode] = useState(true);
+  const wakeLockRef = useRef<any>(null);
+
+  const requestWakeLock = async () => {
+    try {
+      if (typeof navigator !== "undefined" && "wakeLock" in navigator && !wakeLockRef.current) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
+      }
+    } catch {}
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch {}
+  };
 
   const activeChapterRef = useRef(0);
   activeChapterRef.current = currentChapterIndex;
@@ -525,6 +673,8 @@ Format JSON requis :
     if (synth) {
       synth.cancel();
     }
+    radioAudio.stopRadioBed();
+    releaseWakeLock();
     setIsPlaying(false);
     setIsLoadingAudio(false);
     setChapterProgress(0);
@@ -573,6 +723,47 @@ Format JSON requis :
       }
     } catch (e) {
       console.debug("[Prefetch] Tampon discret silencieux:", e);
+    }
+  };
+
+  // Proposition 4 : Pré-chargement automatique complet des 5 dossiers pour démarrage 0 ms
+  const prefetchAllChapters = async (targetChapters: PodcastChapter[]) => {
+    if (voiceEngine !== "neural" || !targetChapters || targetChapters.length === 0) return;
+    for (let i = 0; i < targetChapters.length; i++) {
+      if (prefetchedAudiosRef.current[i]) continue;
+      try {
+        const textToSpeak = targetChapters[i]?.textToSpeak;
+        if (!textToSpeak) continue;
+        const textHash = await computeAudioHash(textToSpeak);
+        const localCached = await getCachedAudio(textHash);
+        if (localCached) {
+          prefetchedAudiosRef.current[i] = localCached;
+          continue;
+        }
+        const res = await fetch("/api/podcast/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: textToSpeak,
+            speed: playbackRate,
+            apiKey: geminiApiKey || ""
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.audioBase64) {
+            const item = {
+              audioBase64: data.audioBase64,
+              mimeType: data.mimeType || "audio/mp3"
+            };
+            prefetchedAudiosRef.current[i] = item;
+            await saveCachedAudio(textHash, item.audioBase64, item.mimeType);
+            getAudioCacheMetrics().then(setCacheStats);
+          }
+        }
+      } catch (e) {
+        // Tampon discret silencieux
+      }
     }
   };
 
@@ -656,8 +847,9 @@ Format JSON requis :
     synth.cancel();
     if (localTimerRef.current) clearInterval(localTimerRef.current);
 
-    // Solution 9 & 10 : Normalisation phonétique et micro-pauses respiratoires pour fluidité maximale
-    const prosodyText = injectSpeechProsody(chapter.textToSpeak);
+    // Solution 9 & 10 : Épuration stricte des marqueurs techniques et normalisation prosodique
+    const cleanSpeech = chapter.textToSpeak.replace(/\[[^\]]+\]/g, " ").replace(/\s+/g, " ").trim();
+    const prosodyText = injectSpeechProsody(cleanSpeech);
     const utterance = new SpeechSynthesisUtterance(prosodyText);
     utterance.lang = "fr-FR";
     utterance.rate = playbackRate;
@@ -668,7 +860,7 @@ Format JSON requis :
     utterance.pitch = 1.0;
 
     // Simulation de progression pour la synthèse vocale locale
-    const words = chapter.textToSpeak.split(/\s+/).length;
+    const words = cleanSpeech.split(/\s+/).length;
     const estimatedDuration = Math.max(12, Math.round((words / 150) * 60 / playbackRate));
     setChapterDuration(estimatedDuration);
     setChapterCurrentTime(0);
@@ -687,6 +879,9 @@ Format JSON requis :
         localTimerRef.current = null;
       }
       setChapterProgress(100);
+      if (radioBedEnabled) {
+        radioAudio.duckRadioBed(false);
+      }
 
       if (activeChapterRef.current < chapters.length - 1) {
         const nextIdx = activeChapterRef.current + 1;
@@ -714,6 +909,9 @@ Format JSON requis :
     setIsPlaying(true);
     const delay = soundEffectsEnabled && isFirstChapter ? 450 : 80;
     setTimeout(() => {
+      if (radioBedEnabled) {
+        radioAudio.duckRadioBed(true);
+      }
       synth.speak(utterance);
     }, delay);
   };
@@ -740,6 +938,9 @@ Format JSON requis :
 
     audio.onended = () => {
       setChapterProgress(100);
+      if (radioBedEnabled) {
+        radioAudio.duckRadioBed(false);
+      }
       if (activeChapterRef.current < chapters.length - 1) {
         const nextIdx = activeChapterRef.current + 1;
         setCurrentChapterIndex(nextIdx);
@@ -772,7 +973,11 @@ Format JSON requis :
 
     const delay = soundEffectsEnabled && isFirstChapter ? 450 : 80;
     setTimeout(() => {
+      console.log("Playing audio element", chapter.title);
       if (isPlayingRef.current) {
+        if (radioBedEnabled) {
+          radioAudio.duckRadioBed(true);
+        }
         audio.play().catch(() => {
           playLocalUtterance(chapter, isFirstChapter);
         });
@@ -781,6 +986,7 @@ Format JSON requis :
   };
 
   const playChapter = async (index: number) => {
+    console.log("Playing chapter", index);
     if (!chapters[index]) return;
     stopPlayback();
 
@@ -790,6 +996,11 @@ Format JSON requis :
     setIsPlaying(true);
     setChapterProgress(0);
     setChapterCurrentTime(0);
+
+    requestWakeLock();
+    if (radioBedEnabled) {
+      radioAudio.startRadioBed();
+    }
 
     // Sound effect: Intro Jingle or Chapter Ping
     if (soundEffectsEnabled) {
@@ -997,6 +1208,80 @@ Format JSON requis :
 
   const currentChapter = chapters[currentChapterIndex];
 
+  if (isMinimized) {
+    return (
+      <div 
+        className="fixed bottom-4 right-4 sm:right-6 z-[160] w-[calc(100%-2rem)] sm:w-96 rounded-2xl border shadow-2xl p-3 backdrop-blur-md text-white flex flex-col gap-2 animate-in slide-in-from-bottom-4 duration-200 border-zinc-700 bg-zinc-950/95"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isPlaying ? "bg-emerald-400" : "bg-zinc-500"} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPlaying ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
+            </span>
+            <span className="text-xs font-bold truncate">
+              Flash 90s • {currentChapterIndex + 1}/5 : {currentChapter?.title || "Dossier en cours"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setIsMinimized(false)}
+              className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300 hover:text-white cursor-pointer transition-colors"
+              title="Agrandir en plein écran"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleClose}
+              className="p-1.5 rounded-md hover:bg-rose-600 hover:text-white text-zinc-400 cursor-pointer transition-colors"
+              title="Fermer et arrêter la lecture"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Mini progress bar */}
+        <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-emerald-400 transition-all duration-150 rounded-full"
+            style={{ width: `${chapterProgress}%` }}
+          />
+        </div>
+
+        {/* Mini controls */}
+        <div className="flex items-center justify-between text-xs pt-0.5">
+          <span className="text-[10px] font-mono text-zinc-400">
+            {Math.round(chapterCurrentTime)}s / {Math.round(chapterDuration)}s
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handlePrev}
+              disabled={currentChapterIndex === 0}
+              className="p-1 rounded hover:bg-zinc-800 text-zinc-300 disabled:opacity-30 cursor-pointer"
+            >
+              <Rewind className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={togglePlay}
+              className="px-3 py-1 rounded-lg bg-white text-black font-bold flex items-center gap-1 cursor-pointer active:scale-95 transition-all text-xs"
+            >
+              {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
+              <span>{isPlaying ? "Pause" : "Play"}</span>
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={currentChapterIndex === chapters.length - 1}
+              className="p-1 rounded hover:bg-zinc-800 text-zinc-300 disabled:opacity-30 cursor-pointer"
+            >
+              <FastForward className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       onClick={(e) => {
@@ -1004,11 +1289,12 @@ Format JSON requis :
           handleClose();
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer"
+      className="fixed inset-0 z-[160] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150 cursor-pointer"
     >
+
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-3xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] overflow-hidden cursor-default ${
+        className={`relative w-full max-w-3xl rounded-2xl border shadow-2xl flex flex-col max-h-[92vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-zinc-950 border-zinc-800 text-white"
             : "bg-white border-zinc-300 text-zinc-900"
@@ -1104,6 +1390,33 @@ Format JSON requis :
               <span className="hidden md:inline">{voiceEngine === "neural" ? "HD" : "Locale"}</span>
             </button>
 
+            {/* Tapis sonore Radio Studio */}
+            <button
+              onClick={() => {
+                const next = !radioBedEnabled;
+                setRadioBedEnabled(next);
+                if (!next) {
+                  radioAudio.stopRadioBed();
+                } else if (isPlaying) {
+                  radioAudio.startRadioBed();
+                }
+                onNotify(next ? "🎵 Tapis sonore studio activé" : "🔇 Tapis sonore désactivé");
+              }}
+              className={`p-1.5 sm:px-2 sm:py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer flex items-center gap-1 ${
+                radioBedEnabled
+                  ? isDark
+                    ? "bg-zinc-800 text-white border-zinc-650"
+                    : "bg-zinc-200 text-black border-zinc-400"
+                  : isDark
+                  ? "bg-zinc-900 text-zinc-500 border-zinc-800"
+                  : "bg-zinc-100 text-zinc-500 border-zinc-300"
+              }`}
+              title="Tapis sonore d'ambiance radio studio"
+            >
+              <span>🎵</span>
+              <span className="hidden lg:inline">{radioBedEnabled ? "Tapis ON" : "Tapis OFF"}</span>
+            </button>
+
             {/* Prompteur plein écran */}
             <button
               onClick={() => setIsTeleprompterOpen(!isTeleprompterOpen)}
@@ -1117,16 +1430,29 @@ Format JSON requis :
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
 
-            {/* Bouton Quitter ultra-visible avec croix */}
+            {/* Réduire en mini-lecteur flottant */}
+            <button
+              onClick={() => {
+                setIsMinimized(true);
+                onNotify("📻 Flash 90s réduit : continuez votre lecture");
+              }}
+              type="button"
+              className="p-1.5 sm:p-2 rounded-lg border border-zinc-750 bg-zinc-850 hover:bg-zinc-750 text-zinc-300 hover:text-white transition-all cursor-pointer shrink-0 z-10 flex items-center justify-center active:scale-95"
+              title="Réduire en barre flottante"
+              aria-label="Réduire"
+            >
+              <Minimize2 className="w-4 h-4 stroke-[2]" />
+            </button>
+
+            {/* Bouton Fermer avec croix */}
             <button
               onClick={handleClose}
               type="button"
-              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
-              title="Quitter le Flash 90s (Échap)"
-              aria-label="Quitter le Flash 90s"
+              className="p-1.5 sm:p-2 rounded-lg border border-zinc-750 bg-zinc-800 hover:bg-rose-600 hover:border-rose-500 text-zinc-300 hover:text-white transition-all cursor-pointer shrink-0 z-10 flex items-center justify-center active:scale-95"
+              title="Fermer (Échap)"
+              aria-label="Fermer"
             >
-              <X className="w-4 h-4 stroke-[3]" />
-              <span className="font-extrabold text-xs">Quitter</span>
+              <X className="w-4 h-4 stroke-[2.5]" />
             </button>
           </div>
         </div>
@@ -1512,11 +1838,11 @@ Format JSON requis :
             <button
               onClick={handleClose}
               type="button"
-              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Quitter le Flash 90s (Échap)"
+              className="p-2 rounded-lg border border-zinc-750 bg-zinc-800 hover:bg-rose-600 hover:border-rose-500 text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95"
+              title="Fermer (Échap)"
+              aria-label="Fermer"
             >
               <X className="w-4 h-4 stroke-[2.5]" />
-              <span>Quitter</span>
             </button>
           </div>
         </div>
@@ -1550,11 +1876,11 @@ Format JSON requis :
 
                 <button
                   onClick={() => setIsTeleprompterOpen(false)}
-                  className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white border border-rose-500 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
-                  title="Quitter le prompteur"
+                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-600 text-zinc-300 hover:text-white border border-zinc-700 hover:border-rose-500 transition-all cursor-pointer flex items-center justify-center active:scale-95"
+                  title="Fermer le prompteur"
+                  aria-label="Fermer"
                 >
                   <X className="w-4 h-4 stroke-[2.5]" />
-                  <span>Quitter</span>
                 </button>
               </div>
             </div>

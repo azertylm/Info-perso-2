@@ -7,7 +7,7 @@
       "properties": {
         "status": {
           "type": "string",
-          "enum": ["free", "active", "expired"],
+          "enum": ["free", "active", "expired", "founder"],
           "description": "The current status of the subscription"
         },
         "planName": {
@@ -21,7 +21,7 @@
         "expiresAt": {
           "type": "string",
           "format": "date-time",
-          "description": "Expiration date-time of the subscription, or null if free"
+          "description": "Expiration date-time of the subscription, or null if free or perpetual"
         },
         "createdAt": {
           "type": "string",
@@ -40,6 +40,18 @@
         "appSource": {
           "type": "string",
           "description": "Source of the subscription request or simulator"
+        },
+        "isFounder": {
+          "type": "boolean",
+          "description": "Whether the user holds a founder lifetime license"
+        },
+        "founderNumber": {
+          "type": "integer",
+          "description": "Founder pioneer member sequence number (1-500)"
+        },
+        "perpetual": {
+          "type": "boolean",
+          "description": "Whether the license is perpetual without expiration"
         }
       },
       "required": ["status", "planName", "subscribedApps", "createdAt", "updatedAt", "customerEmail", "appSource"]

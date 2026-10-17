@@ -120,6 +120,18 @@ export const CultureBarAndModal: React.FC<CultureBarAndModalProps> = ({
 }) => {
   const isFun = theme === "fun";
 
+  // Escape key to close modal
+  React.useEffect(() => {
+    if (!showModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCloseModal();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showModal, onCloseModal]);
+
   // Find Dikkenek article if present in feed
   const dikkenekArticle = articles.find(
     (a) =>
@@ -318,12 +330,13 @@ export const CultureBarAndModal: React.FC<CultureBarAndModalProps> = ({
       {/* 2. DEDICATED MODAL: RÉGLAGES & PERSONNALISATION ART & CULTURE */}
       {showModal && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in"
+          className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in cursor-pointer"
           onClick={onCloseModal}
         >
+
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-2xl max-h-[85dvh] sm:max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden transition-all ${
+            className={`relative w-full max-w-2xl max-h-[85dvh] sm:max-h-[88vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden transition-all cursor-default ${
               isFun
                 ? "bg-white border-4 border-black text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
                 : isDark
@@ -333,7 +346,7 @@ export const CultureBarAndModal: React.FC<CultureBarAndModalProps> = ({
           >
             {/* Modal Header */}
             <div
-              className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${
+              className={`flex items-center justify-between px-5 py-4 border-b shrink-0 gap-2 ${
                 isFun
                   ? "bg-rose-300 border-black"
                   : isDark
@@ -341,9 +354,9 @@ export const CultureBarAndModal: React.FC<CultureBarAndModalProps> = ({
                   : "bg-rose-50 border-rose-200"
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div
-                  className={`p-2 rounded-xl ${
+                  className={`p-2 rounded-xl shrink-0 ${
                     isFun
                       ? "bg-white border-2 border-black"
                       : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
@@ -351,24 +364,26 @@ export const CultureBarAndModal: React.FC<CultureBarAndModalProps> = ({
                 >
                   <Palette className="w-5 h-5 text-rose-400" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
-                    Réglages &amp; Raccourcis Art &amp; Culture
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold uppercase">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2 flex-wrap">
+                    <span className="truncate">Réglages Art &amp; Culture</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold uppercase shrink-0">
                       5 Raccourcis Dédiés
                     </span>
                   </h3>
-                  <p className="text-xs opacity-75">
+                  <p className="text-xs opacity-75 truncate max-w-md">
                     Configurez votre niveau d'appétence culturelle, vos sources artistiques et accédez aux événements cultes.
                   </p>
                 </div>
               </div>
               <button
                 onClick={onCloseModal}
-                className="p-2 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                type="button"
+                className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-rose-500/30 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+                title="Fermer (Échap)"
                 aria-label="Fermer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 
@@ -675,9 +690,12 @@ export const CultureBarAndModal: React.FC<CultureBarAndModalProps> = ({
               </button>
               <button
                 onClick={onCloseModal}
-                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer"
+                type="button"
+                className="p-2.5 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                title="Fermer"
+                aria-label="Fermer"
               >
-                Terminer
+                <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
           </div>

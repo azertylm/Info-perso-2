@@ -14,10 +14,14 @@ import {
   Copy,
   CheckCircle2,
   Lock,
-  Loader2
+  Loader2,
+  Crown,
+  Flame,
+  ArrowRight
 } from "lucide-react";
 import { AlphabetteSuiteConfig } from "../types";
 import { safeFetchJson } from "../lib/apiHelper";
+import { isFounderMember } from "../lib/subscriptionService";
 
 interface AlphabettePricingModalProps {
   isOpen: boolean;
@@ -47,6 +51,8 @@ export default function AlphabettePricingModal({
     return localStorage.getItem("alphabette_user_plan") || "trial";
   });
 
+  const isFounder = activePlan === "founder" || activePlan === "FONDATEUR" || isFounderMember();
+
   // Calcul du temps restant pour l'essai gratuit 7 jours
   const [trialDaysLeft] = useState<number>(() => {
     const trialStarted = localStorage.getItem("alphabette_trial_started_at");
@@ -72,6 +78,18 @@ export default function AlphabettePricingModal({
         .finally(() => setIsLoadingConfig(false));
     }
   }, [isOpen]);
+
+  // Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -166,9 +184,18 @@ Site officiel : http://alphabette.fr`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto cursor-pointer"
+    >
+
       <div
-        className={`relative w-full max-w-3xl rounded-2xl border-2 shadow-2xl overflow-hidden my-auto transition-all ${
+        onClick={(e) => e.stopPropagation()}
+        className={`relative w-full max-w-3xl rounded-2xl border-2 shadow-2xl overflow-hidden my-auto transition-all cursor-default ${
           isDark
             ? "bg-slate-900 border-slate-700 text-white"
             : "bg-white border-slate-300 text-slate-900"
@@ -201,14 +228,12 @@ Site officiel : http://alphabette.fr`;
           </div>
           <button
             onClick={onClose}
-            className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 border ${
-              isDark
-                ? "bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
-                : "bg-white text-slate-800 border-slate-300 hover:bg-slate-200"
-            }`}
-            title="Fermer"
+            type="button"
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+            title="Fermer (Échap)"
+            aria-label="Fermer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 
@@ -242,6 +267,29 @@ Site officiel : http://alphabette.fr`;
         {/* Corps de la modale */}
         <div className="p-5 sm:p-6 space-y-6 max-h-[calc(85vh-180px)] overflow-y-auto">
           
+          {/* Bannière Membre Fondateur Actif */}
+          {isFounder && (
+            <div className="p-4 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-yellow-500/20 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-amber-300 flex items-center gap-2 flex-wrap">
+                    <span>Membre Fondateur Pionnier Actif (#84 / 500)</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-white font-mono font-bold">À Vie</span>
+                  </h4>
+                  <p className="text-xs text-slate-300">
+                    Licence Perpétuelle débloquée sur l'ensemble de la suite logicielle ALPHABETTE. Aucun renouvellement nécessaire.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs px-3 py-1 rounded-full bg-amber-500 text-slate-950 font-black shrink-0">
+                Licence Perpétuelle Active
+              </span>
+            </div>
+          )}
+
           {/* Section 1 : Deux Formules Claires (Pas de gris sur gris) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             
@@ -379,6 +427,85 @@ Site officiel : http://alphabette.fr`;
             </div>
           </div>
 
+          {/* Formule 3 : Pass Fondateur — Licence Perpétuelle (500 Pionniers) */}
+          <div
+            className={`p-6 rounded-2xl border-2 flex flex-col md:flex-row items-center justify-between gap-5 transition-all relative overflow-hidden ${
+              isFounder
+                ? "border-amber-400 bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/30 ring-4 ring-amber-500/20"
+                : isDark
+                ? "bg-slate-900/90 border-amber-500/60 shadow-xl"
+                : "bg-amber-50/70 border-amber-400 shadow-lg"
+            }`}
+          >
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-xs flex items-center gap-1.5">
+                  <Crown className="w-3.5 h-3.5" />
+                  Offre Limitée • 500 Pionniers
+                </span>
+                <span className="text-xs font-mono font-bold text-amber-400">
+                  84 / 500 places attribuées
+                </span>
+              </div>
+
+              <h3 className={`text-xl font-black ${isDark ? "text-white" : "text-slate-950"}`}>
+                Pass Fondateur — Licence Perpétuelle
+              </h3>
+
+              <p className={`text-xs sm:text-sm leading-relaxed ${isDark ? "text-slate-300" : "text-slate-700 font-medium"}`}>
+                Soutenez une information souveraine, sans publicité et libérée du bruit médiatique.
+                Accès garanti à vie à toutes les fonctionnalités actuelles et futures, sans abonnement récurrent.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs font-medium">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Accès illimité à vie sans récurrence</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Badge exclusif « Fondateur Pionnier »</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Priorité sur développements & votes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Montant libre à partir de 30 € minimum</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 w-full md:w-auto text-center md:text-right space-y-2">
+              <div className="flex md:justify-end items-baseline gap-1.5 justify-center">
+                <span className="text-xs uppercase font-bold text-amber-400">Dès</span>
+                <span className={`text-3xl sm:text-4xl font-black ${isDark ? "text-white" : "text-slate-950"}`}>
+                  30 €
+                </span>
+                <span className="text-xs font-black uppercase text-amber-400">À Vie</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  const donationEl = document.getElementById("donations-and-rib-view");
+                  if (donationEl) {
+                    donationEl.scrollIntoView({ behavior: "smooth" });
+                  } else {
+                    window.dispatchEvent(new CustomEvent("alphabette_navigate_tab", { detail: "donations" }));
+                  }
+                  if (onNotify) onNotify("👑 Redirection vers l'espace Membre Fondateur...");
+                }}
+                className="w-full md:w-auto px-5 py-3 rounded-xl font-black text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Crown className="w-4 h-4 text-slate-950" />
+                <span>{isFounder ? "Voir mes avantages Fondateur" : "Devenir Membre Fondateur (30 € min)"}</span>
+              </button>
+            </div>
+          </div>
+
           {/* Section 2 : Validation Code Privilège / Invitation */}
           <div
             className={`p-5 rounded-2xl border-2 space-y-3 ${
@@ -490,13 +617,12 @@ Site officiel : http://alphabette.fr`;
 
           <button
             onClick={onClose}
-            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer border ${
-              isDark
-                ? "bg-slate-800 hover:bg-slate-700 text-white border-slate-600"
-                : "bg-white hover:bg-slate-200 text-slate-900 border-slate-300"
-            }`}
+            type="button"
+            className="p-2.5 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95"
+            title="Fermer"
+            aria-label="Fermer"
           >
-            Fermer
+            <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
       </div>

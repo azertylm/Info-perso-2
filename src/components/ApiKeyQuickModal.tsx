@@ -139,9 +139,17 @@ export default function ApiKeyQuickModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in cursor-pointer"
+    >
+
       <div
-        className={`w-full max-w-xl rounded-2xl shadow-2xl border overflow-hidden flex flex-col transition-all max-h-[90vh] ${
+        className={`relative w-full max-w-xl rounded-2xl shadow-2xl border overflow-hidden flex flex-col transition-all max-h-[90vh] cursor-default ${
           isDark
             ? "bg-zinc-900 border-zinc-750 text-zinc-100"
             : "bg-white border-zinc-200 text-zinc-900"
@@ -169,10 +177,12 @@ export default function ApiKeyQuickModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 transition-colors"
-            title="Fermer la boîte (Échap)"
+            type="button"
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-zinc-700 hover:border-rose-500 bg-zinc-800 hover:bg-rose-600 text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+            title="Fermer (Échap)"
+            aria-label="Fermer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 

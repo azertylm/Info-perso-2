@@ -12,41 +12,8 @@ import {
   X,
   Share2,
   HelpCircle,
-  ShieldCheck,
-  Radio,
-  Play,
-  Pause,
-  Volume2,
-  Copy,
-  Check
+  ShieldCheck
 } from "lucide-react";
-
-export function renderFormattedAudioScript(text: string, isDark: boolean) {
-  if (!text) return null;
-  const parts = text.split(/(\[[^\]]+\])/g);
-  return (
-    <span className="leading-relaxed">
-      {parts.map((segment, idx) => {
-        if (segment.startsWith("[") && segment.endsWith("]")) {
-          return (
-            <span
-              key={idx}
-              className={`inline-block px-1.5 py-0.5 mx-0.5 my-0.5 rounded text-[11px] font-mono italic select-none transition-colors ${
-                isDark
-                  ? "bg-slate-800/90 text-slate-400 border border-slate-700/60"
-                  : "bg-slate-100 text-slate-500 border border-slate-300"
-              }`}
-              title="Marqueur d'intonation vocale de la chronique"
-            >
-              {segment}
-            </span>
-          );
-        }
-        return <span key={idx}>{segment}</span>;
-      })}
-    </span>
-  );
-}
 
 interface NuancePerspectiveModalProps {
   isOpen: boolean;
@@ -67,8 +34,6 @@ export const NuancePerspectiveModal: React.FC<NuancePerspectiveModalProps> = ({
 }) => {
   const [analysis, setAnalysis] = useState<PerspectiveAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isPlayingScript, setIsPlayingScript] = useState(false);
-  const [copiedScript, setCopiedScript] = useState(false);
 
   // Generate perspective analysis whenever article changes
   useEffect(() => {
@@ -125,42 +90,6 @@ export const NuancePerspectiveModal: React.FC<NuancePerspectiveModalProps> = ({
 
     setAnalysis(generateHeuristicPerspective(article));
   }, [article]);
-
-  const handleTogglePlayScript = () => {
-    if (!article?.script_podcast) return;
-
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      if (isPlayingScript) {
-        window.speechSynthesis.cancel();
-        setIsPlayingScript(false);
-        onNotify("Lecture audio en pause.");
-        return;
-      }
-
-      window.speechSynthesis.cancel();
-      const cleanText = article.script_podcast.replace(/\[[^\]]+\]/g, "").replace(/\s+/g, " ").trim();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = "fr-FR";
-      utterance.rate = 1.05;
-
-      utterance.onend = () => setIsPlayingScript(false);
-      utterance.onerror = () => setIsPlayingScript(false);
-
-      window.speechSynthesis.speak(utterance);
-      setIsPlayingScript(true);
-      onNotify("🎙️ Lecture de la chronique 90 secondes en cours...");
-    } else {
-      onNotify("Synthèse vocale non disponible sur ce navigateur.");
-    }
-  };
-
-  const handleCopyScript = () => {
-    if (!article?.script_podcast) return;
-    navigator.clipboard.writeText(article.script_podcast);
-    setCopiedScript(true);
-    setTimeout(() => setCopiedScript(false), 2000);
-    onNotify("📋 Script oralisé copié dans le presse-papier !");
-  };
 
   const handleDeepAIAnalysis = async () => {
     if (!article) return;
@@ -247,11 +176,12 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
           onClose();
         }
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
     >
+
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-3xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
+        className={`relative w-full max-w-3xl rounded-3xl border shadow-2xl flex flex-col max-h-[85dvh] sm:max-h-[88vh] overflow-hidden cursor-default ${
           isDark
             ? "bg-gradient-to-b from-slate-900 via-slate-950 to-black border-cyan-500/30 text-slate-100"
             : "bg-white border-slate-200 text-slate-900"
@@ -287,16 +217,15 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
               </p>
             </div>
           </div>
-          {/* Bouton Quitter ultra-visible avec croix */}
+          {/* Bouton Fermer avec croix */}
           <button
             onClick={onClose}
             type="button"
-            className="px-3 py-1.5 rounded-xl border-2 border-rose-500 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-rose-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 z-10"
-            title="Quitter la vue Nuances (Échap)"
-            aria-label="Quitter la vue Nuances"
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+            title="Fermer (Échap)"
+            aria-label="Fermer"
           >
-            <X className="w-4 h-4 stroke-[3]" />
-            <span className="font-extrabold text-xs">Quitter</span>
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 
@@ -411,42 +340,6 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
               ))}
             </ul>
           </div>
-
-          {/* Section 4: Chronique Audio Oralisée (Flash 90s) avec style distinct des marqueurs */}
-          {article.script_podcast && (
-            <div className={`p-4 rounded-2xl border ${
-              isDark ? "bg-slate-950/80 border-indigo-500/30 text-slate-100" : "bg-indigo-50/40 border-indigo-200 text-slate-900"
-            }`}>
-              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-indigo-400">
-                  <Radio className="w-4 h-4" />
-                  <span>4. Chronique Audio Oralisée (Flash 90s)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCopyScript}
-                    className="px-2 py-1 rounded-lg border text-xs font-mono flex items-center gap-1 cursor-pointer transition-colors border-slate-700 hover:bg-slate-800"
-                    title="Copier le script en 1 clic"
-                  >
-                    {copiedScript ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedScript ? "Copié !" : "Copier (1 clic)"}</span>
-                  </button>
-                  <button
-                    onClick={handleTogglePlayScript}
-                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  >
-                    {isPlayingScript ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                    <span>{isPlayingScript ? "Pause" : "Écouter le flash (90s)"}</span>
-                  </button>
-                </div>
-              </div>
-              <div className={`p-3.5 rounded-xl border text-xs sm:text-sm leading-relaxed max-h-52 overflow-y-auto scrollbar whitespace-pre-line font-sans ${
-                isDark ? "bg-black/60 border-slate-800 text-slate-200" : "bg-white border-indigo-100 text-slate-800"
-              }`}>
-                {renderFormattedAudioScript(article.script_podcast, isDark)}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -463,10 +356,11 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
           <button
             onClick={onClose}
             type="button"
-            className="px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
+            className="p-2.5 rounded-xl border border-slate-700 hover:border-rose-500 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95"
+            title="Fermer"
+            aria-label="Fermer"
           >
             <X className="w-4 h-4 stroke-[2.5]" />
-            <span>Quitter</span>
           </button>
         </div>
       </div>

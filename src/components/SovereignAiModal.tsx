@@ -70,6 +70,18 @@ export default function SovereignAiModal({
     }
   }, [isOpen]);
 
+  // Escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const handleSelectProvider = (mode: AiProviderMode) => {
     setSelectedProvider(mode);
     setStoredAiProvider(mode);
@@ -106,9 +118,19 @@ export default function SovereignAiModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+    <div 
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto cursor-pointer"
+    >
+      {/* Floating Viewport-level Exit Cross Button */}
+
       <div
-        className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden my-auto transition-all ${
+        onClick={(e) => e.stopPropagation()}
+        className={`relative w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden my-auto transition-all cursor-default ${
           isDark
             ? "bg-zinc-950 border-zinc-800 text-zinc-100"
             : "bg-white border-zinc-250 text-zinc-900"
@@ -136,10 +158,12 @@ export default function SovereignAiModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer"
-            title="Fermer"
+            type="button"
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-zinc-700 hover:border-rose-500 bg-zinc-800 hover:bg-rose-600 text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center justify-center active:scale-95 shrink-0 z-10"
+            title="Fermer (Échap)"
+            aria-label="Fermer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
         </div>
 
