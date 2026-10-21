@@ -1084,7 +1084,7 @@ app.post("/api/podcast/tts", async (req, res) => {
                 {
                   text: normalized,
                   speechMetadata: {
-                    style: "Journaliste de radio d'information continue, diction impeccable, intonation naturelle, chaleureuse et articulée",
+                    style: "Journaliste de matinale d'information radio, voix calme, articulation nette, ton posé et mesuré, intonations humaines et chaleureuses",
                   },
                 },
               ],
@@ -2018,8 +2018,17 @@ app.get("/api/articles/share", (req, res) => {
 
 // List recently shared or imported articles
 app.get("/api/articles/shared", (req, res) => {
-  const list = Array.from(sharedArticlesMap.values()).reverse().slice(0, 50);
-  res.json({ success: true, articles: list });
+  const isAll = req.query.all === "true" || req.query.limit === "all";
+  const allArticles = Array.from(sharedArticlesMap.values()).reverse();
+  const limit = isAll ? allArticles.length : Math.min(allArticles.length, parseInt(String(req.query.limit || "50"), 10) || 50);
+  const list = allArticles.slice(0, limit);
+  res.json({ success: true, articles: list, total: allArticles.length });
+});
+
+// Full dump of all saved/generated articles
+app.get("/api/articles/all", (req, res) => {
+  const allArticles = Array.from(sharedArticlesMap.values()).reverse();
+  res.json({ success: true, articles: allArticles, total: allArticles.length });
 });
 
 // ==========================================
@@ -2070,14 +2079,16 @@ function formatRelativeTime(dateStr?: string): string {
 let liveRssCache: { timestamp: number; articles: any[] } = { timestamp: 0, articles: [] };
 
 const LIVE_FEEDS_CONFIG = [
-  { source: "Le Figaro", category: "Actualité", emoji: "🔴", url: "https://www.lefigaro.fr/rss/figaro_flash-actu.xml" },
-  { source: "Le Figaro", category: "International", emoji: "🌍", url: "https://www.lefigaro.fr/rss/figaro_actualites.xml" },
-  { source: "France Info", category: "Actualité", emoji: "⚡", url: "https://www.francetvinfo.fr/titres.rss" },
+  { source: "BFM TV", category: "Actualité", emoji: "🔴", url: "https://www.bfmtv.com/rss/news-24-7/" },
+  { source: "Le Figaro", category: "Actualité", emoji: "⚡", url: "https://www.lefigaro.fr/rss/figaro_flash-actu.xml" },
+  { source: "France Info", category: "Actualité", emoji: "📻", url: "https://www.francetvinfo.fr/titres.rss" },
+  { source: "Le Parisien", category: "Actualité", emoji: "🗞️", url: "https://feeds.leparisien.fr/leparisien/rss" },
   { source: "Le Monde", category: "Actualité", emoji: "📰", url: "https://www.lemonde.fr/rss/une.xml" },
-  { source: "Le Canard Enchaîné", category: "Actualité", emoji: "🦆", url: "https://www.lecanardenchaine.fr/rss/index.xml" },
-  { source: "Les Échos", category: "Économie", emoji: "💼", url: "https://services.lesechos.fr/rss/les-echos-economie.xml" },
-  { source: "Futura Sciences", category: "Science", emoji: "🔬", url: "https://www.futura-sciences.com/rss/actualites.xml" },
   { source: "Google Actualités", category: "Actualité", emoji: "🌐", url: "https://news.google.com/rss?hl=fr&gl=FR&ceid=FR:fr" },
+  { source: "Les Échos", category: "Économie", emoji: "💼", url: "https://services.lesechos.fr/rss/les-echos-economie.xml" },
+  { source: "Le Figaro International", category: "International", emoji: "🌍", url: "https://www.lefigaro.fr/rss/figaro_actualites.xml" },
+  { source: "Le Canard Enchaîné", category: "Actualité", emoji: "🦆", url: "https://www.lecanardenchaine.fr/rss/index.xml" },
+  { source: "Futura Sciences", category: "Science", emoji: "🔬", url: "https://www.futura-sciences.com/rss/actualites.xml" },
   { source: "Le Figaro Culture", category: "Culture", emoji: "🎭", url: "https://www.lefigaro.fr/rss/figaro_culture.xml" },
   { source: "France Info Culture", category: "Culture", emoji: "🎨", url: "https://www.francetvinfo.fr/culture.rss" },
   { source: "Le Monde Culture", category: "Culture", emoji: "🏛️", url: "https://www.lemonde.fr/culture/rss_full.xml" },
@@ -2108,24 +2119,47 @@ app.get("/api/rss/live", async (req, res) => {
         const items: any[] = [];
         const itemRegex = /<item[\s>]([\s\S]*?)<\/item>/gi;
         let match;
-        while ((match = itemRegex.exec(xml)) !== null && items.length < 15) {
+        while ((match = itemRegex.exec(xml)) !== null && items.length < 20) {
           const block = match[1];
           const titleM = block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i);
           const linkM = block.match(/<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i);
           const descM = block.match(/<(?:description|content:encoded)>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/(?:description|content:encoded)>/i);
-          const dateM = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i);
+          const dateM = block.match(/<(?:pubDate|published|updated|dc:date)>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/(?:pubDate|published|updated|dc:date)>/i);
 
           const rawTitle = titleM ? titleM[1] : "";
-          const title = decodeHtmlEntities(rawTitle);
-          const link = linkM ? linkM[1].trim() : "";
+          const title = decodeHtmlEntities(rawTitle).replace(/<[^>]*>/g, "").trim();
+          const link = linkM ? linkM[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : "";
           const rawDesc = descM ? descM[1] : "";
-          const summary = decodeHtmlEntities(rawDesc);
-          const pubDate = dateM ? dateM[1].trim() : new Date().toISOString();
-          const parsedDate = new Date(pubDate).getTime();
-          const pubDateMs = isNaN(parsedDate) ? Date.now() : parsedDate;
+          const cleanDesc = decodeHtmlEntities(rawDesc).replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+          const summary = cleanDesc;
+
+          // Safe Date extraction handling CDATA and diverse formats
+          let cleanDateStr = dateM ? dateM[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim() : "";
+          let pubDateMs = 0;
+          if (cleanDateStr) {
+            const parsed = new Date(cleanDateStr).getTime();
+            if (!isNaN(parsed) && parsed > 0) {
+              pubDateMs = parsed > now + 60000 ? now : parsed;
+            }
+          }
+          if (!pubDateMs) {
+            pubDateMs = now - 3600000; // 1 hour ago fallback if missing so it does not overtake real news
+          }
+
+          // Extract image if available
+          let imageUrl = "";
+          const enclosureM = block.match(/<enclosure[^>]+url=["']([^"']+)["']/i);
+          const mediaContentM = block.match(/<media:content[^>]+url=["']([^"']+)["']/i);
+          const mediaThumbM = block.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i);
+          const imgM = rawDesc.match(/<img[^>]+src=["']([^"']+)["']/i);
+
+          if (enclosureM) imageUrl = enclosureM[1];
+          else if (mediaContentM) imageUrl = mediaContentM[1];
+          else if (mediaThumbM) imageUrl = mediaThumbM[1];
+          else if (imgM) imageUrl = imgM[1];
 
           if (title && title.length > 5) {
-            // Guaranteed non-null numeric stable ID based on title hash + timestamp
+            // Stable ID based on title hash + timestamp
             let hash = 5381;
             for (let i = 0; i < title.length; i++) {
               hash = ((hash << 5) + hash) + title.charCodeAt(i);
@@ -2149,13 +2183,14 @@ app.get("/api/rss/live", async (req, res) => {
               title,
               source: f.source,
               category: f.category,
-              time: formatRelativeTime(pubDate),
+              time: formatRelativeTime(cleanDateStr || new Date(pubDateMs).toISOString()),
               score: 95,
               emoji: f.emoji,
               tags: ["Direct Live", "Fil Info", f.source, ...cultureTags],
               summary: summary || title,
               content: `${summary || title}\n\nRetrouvez le fil complet des événements et l'enquête en continu sur le site officiel de ${f.source}.\nLien original : ${link}`,
               featured: false,
+              imageUrl: imageUrl || undefined,
               originalUrl: link,
               isLive: true,
               createdAt: pubDateMs
@@ -2190,8 +2225,52 @@ app.get("/api/rss/live", async (req, res) => {
       }
     }
 
+    // Twitter-style breaking news ranking:
+    // Prioritize major news feeds (BFM, Figaro, France Info, Le Parisien, Le Monde, Google News, Les Echos)
+    // and diversify so no single source floods the top 20
+    const prioritySources = new Set([
+      "BFM TV", "Le Figaro", "France Info", "Le Parisien", "Le Monde", "Google Actualités", "Les Échos", "Le Figaro International"
+    ]);
+
+    const top20: any[] = [];
+    const sourceCount = new Map<string, number>();
+
+    // Pass 1: Fresh breaking news from priority sources (max 2 per source in top 10, max 3 in top 20)
+    for (const item of deduplicated) {
+      if (top20.length >= 20) break;
+      const count = sourceCount.get(item.source) || 0;
+      const maxAllowed = top20.length < 10 ? 2 : 3;
+      if (prioritySources.has(item.source) && count < maxAllowed) {
+        top20.push(item);
+        sourceCount.set(item.source, count + 1);
+      }
+    }
+
+    // Pass 2: Other recent articles (Science, Culture, etc.) max 2 per source to add variety
+    for (const item of deduplicated) {
+      if (top20.length >= 20) break;
+      if (!top20.includes(item)) {
+        const count = sourceCount.get(item.source) || 0;
+        if (count < 2) {
+          top20.push(item);
+          sourceCount.set(item.source, count + 1);
+        }
+      }
+    }
+
+    // Pass 3: Fill up to 20 if needed
+    for (const item of deduplicated) {
+      if (top20.length >= 20) break;
+      if (!top20.includes(item)) {
+        top20.push(item);
+      }
+    }
+
+    const remaining = deduplicated.filter(item => !top20.includes(item));
+    const finalFeed = [...top20, ...remaining];
+
     // Mark top 3 as featured
-    deduplicated.forEach((item, idx) => {
+    finalFeed.forEach((item, idx) => {
       if (idx < 3) item.featured = true;
       // Also register into sharedArticlesMap so any live item clicked or shared can be opened by ID!
       sharedArticlesMap.set(String(item.id), item);
@@ -2199,10 +2278,10 @@ app.get("/api/rss/live", async (req, res) => {
 
     liveRssCache = {
       timestamp: now,
-      articles: deduplicated
+      articles: finalFeed
     };
 
-    res.json({ success: true, count: deduplicated.length, articles: deduplicated });
+    res.json({ success: true, count: finalFeed.length, articles: finalFeed });
   } catch (err: any) {
     console.warn("Live RSS Aggregation Notice:", err?.message || err);
     res.status(500).json({ success: false, error: err.message || "Erreur de récupération du direct" });

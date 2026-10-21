@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -63,9 +63,11 @@ import {
   BarChart3,
   Target,
   CheckCircle2,
-  TrendingUp
+  TrendingUp,
+  ArrowLeft,
+  Play
 } from "lucide-react";
-import { NewsArticle, ApiKeys, AVAILABLE_MODELS, DiscoveryMode, NaturalRadarProfile } from "../types";
+import { NewsArticle, ApiKeys, AVAILABLE_MODELS, DiscoveryMode, NaturalRadarProfile, ReperesTemporelsItem } from "../types";
 import { motion } from "motion/react";
 import { getArticleIllustration, getFallbackCategoryIllustration, fetchLiveWikimediaPhoto } from "../lib/photoService";
 import { exportArticleAsPdf } from "../lib/pdfExportService";
@@ -78,13 +80,24 @@ import {
   resolveSharedArticleAsync,
   saveArticleToServerRegistry
 } from "../lib/shareHelper";
-import { getYouTubeSearchUrl, YOUTUBE_FILTER_OPTIONS, YouTubeFilterType, extractTopicalKeywords } from "../lib/youtubeHelper";
+import {
+  getYouTubeSearchUrl,
+  YOUTUBE_FILTER_OPTIONS,
+  YouTubeFilterType,
+  extractTopicalKeywords,
+  extractYouTubeVideoId,
+  getYouTubeEmbedUrl,
+  extractAllYouTubeIds,
+  getVideoKeyPoints
+} from "../lib/youtubeHelper";
+import { getArticleReperesTemporels } from "../lib/reperesTemporelsHelper";
+import { purgeFillerWords } from "../lib/phoneticNormalizer";
 import { SettingsVolet } from "./SettingsVolet";
 import { CultureBarAndModal, CULTURE_SHORTCUTS } from "./CultureBarAndModal";
 import { getNextSuggestedWords, normalizeKeyword } from "../lib/semanticExplorer";
 import { EditorialMixerBar, ArticleFeedbackWidget, TagActionModal } from "./PersonalizationSuite";
 import { sanitizeArticleTemporalConsistency, fixTemporalConsistency, getTemporalPromptDirective } from "../lib/temporalConsistency";
-import { ensureArticleDeepData, cleanArticleContent, formatArticleDateTime, getArticleRelativeTime, TRUMP_TMTG_FULL_CONTENT, MONDIAL_AUTO_2026_FULL_CONTENT, ENFANTS_ROUGES_FIRE_FULL_CONTENT } from "../lib/articleEnricher";
+import { ensureArticleDeepData, cleanArticleContent, formatArticleDateTime, getArticleRelativeTime, deduplicateArticlesList, TRUMP_TMTG_FULL_CONTENT, MONDIAL_AUTO_2026_FULL_CONTENT, ENFANTS_ROUGES_FIRE_FULL_CONTENT } from "../lib/articleEnricher";
 import { getQuotaStatus, incrementQuotaUsage } from "../lib/quotaManager";
 import { useFoldable } from "../lib/useFoldable";
 import { FoldableBar } from "./FoldableBar";
@@ -103,13 +116,48 @@ import { ExecutiveBriefingModal } from "./ExecutiveBriefingModal";
 // Initial mock dataset from static HTML template
 const INITIAL_ARTICLES: NewsArticle[] = [
   {
-    id: 1791807600000,
+    id: 1792309100000,
     featured: true,
+    title: "Mobilisation nationale du 17-18 octobre : scènes de chaos, plus de 1 200 interpellations et lourdes dégradations dans plusieurs villes",
+    source: "Le Figaro, France Info & Les Échos",
+    category: "Actualité",
+    time: "À l'instant",
+    score: 100,
+    score_bruit: 1,
+    emoji: "⚡🔥",
+    tags: ["Direct Live", "Manifestations", "Police", "France", "Faits Divers", "Politique"],
+    imageUrl: "https://images.unsplash.com/photo-1569098644584-210bcd375b59?auto=format&fit=crop&w=800&q=80",
+    summary: "Une journée et une nuit d'extrême tension ont secoué la France lors de la mobilisation du 17-18 octobre. Le ministère de l'Intérieur recense plus de 1 200 interpellations, dont 855 à Paris, 150 policiers et gendarmes blessés, ainsi que d'importants dégâts matériels incluant l'incendie partiel de l'hôtel de ville de Limoges et de multiples commerces vandalisés place de la République.",
+    keyFigures: [
+      { label: "Interpellations", value: "1 200+", detail: "Dont 855 à Paris selon la préfecture de police" },
+      { label: "Forces de l'ordre", value: "150 blessés", detail: "Policiers et gendarmes pris pour cible par des cortèges radicaux" },
+      { label: "Manifestants", value: "550 000", detail: "Nombre total estimé dans toute la France sur l'ensemble des cortèges" },
+      { label: "Bâtiments publics", value: "Mairie de Limoges", detail: "Façade et toiture endommagées, plusieurs véhicules calcinés" }
+    ],
+    keyTakeaways: [
+      "Journée de mobilisation historique marquée par des débordements violents dans les grandes métropoles.",
+      "Record d'interpellations dans la capitale et réponse judiciaire ferme exigée par les autorités.",
+      "Pillages et dégradations de commerces notamment à Paris, Lyon, Rennes et Limoges.",
+      "Réunion de crise Place Beauvau et débats intenses sur le maintien de l'ordre républicain."
+    ],
+    strategicAnalysis: {
+      actorsInvolved: ["Ministère de l'Intérieur", "Préfecture de Police de Paris", "Syndicats et collectifs", "Magistrats du parquet"],
+      marketImpact: "Conséquences financières directes pour les commerces des centres-villes et renforcement des dispositifs de sécurité privée.",
+      privacyCompliance: "Utilisation encadrée des caméras piétons et des drones de surveillance aérienne selon les règles de la CNIL.",
+      nextMilestone: "Comparutions immédiates dans les tribunaux et allocution gouvernementale attendue."
+    },
+    content: `### 1. Une journée de colère et de contestation sous haute tension\n\nLa mobilisation nationale du 17 et 18 octobre a rassemblé près de 550 000 manifestants à travers toute la France, avec des cortèges d'une ampleur inédite dans les grandes villes. Si la majorité des défilés s'est déroulée dans le calme, la fin d'après-midi et la nuit ont été marquées par des affrontements violents entre groupes d'émeutiers et forces de sécurité.\n\n### 2. Dégâts matériels majeurs et record d'interpellations\n\nÀ Paris, la préfecture de police a dénombré 855 interpellations, un chiffre record. Des vitrines de banques, de commerces de luxe et de concessions automobiles ont été brisées, et plusieurs incendies de mobilier urbain ont été allumés aux abords de la place de la République et des grands boulevards. En province, l'hôtel de ville de Limoges a subi un incendie partiel rapidement maîtrisé par les pompiers, tandis que des heurts sporadiques ont éclaté à Lyon, Nantes et Rennes.\n\n### 3. Réactions politiques et consignes de fermeté\n\nLe gouvernement a salué le professionnalisme des 150 policiers et gendarmes blessés lors des interventions. Des consignes de fermeté maximale ont été adressées aux parquets afin que les auteurs de violences et de pillages soient rapidement jugés en comparution immédiate. L'opposition et les observateurs s'interrogent désormais sur les répercussions politiques d'une telle explosion sociale.`,
+    createdAt: Date.now() - 120000
+  },
+  {
+    id: 1791807600000,
+    featured: false,
     title: "Paris : Le marché historique des Enfants Rouges entièrement détruit par un violent incendie cette nuit",
     source: "Le Parisien & AFP",
     category: "Société",
-    time: "Ce matin (12 oct. 2026)",
-    score: 100,
+    time: "Dossier Rétrospectif (12 oct. 2026)",
+    score: 88,
+    score_bruit: 2,
     emoji: "🔥🏛️",
     tags: ["Paris", "Incendie", "Marché des Enfants Rouges", "Marais", "Faits Divers", "Patrimoine", "3e Arrondissement"],
     imageUrl: "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
@@ -148,6 +196,7 @@ const INITIAL_ARTICLES: NewsArticle[] = [
     category: "Technologie",
     time: "Dossier Exclusif • Enquête de fond",
     score: 100,
+    score_bruit: 1,
     emoji: "🤖✨",
     tags: ["Meta", "Intelligence Artificielle", "Agent IA", "Multimodal", "Ray-Ban Meta", "Llama 3"],
     imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
@@ -215,6 +264,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Culture",
     time: "Aujourd'hui",
     score: 99,
+    score_bruit: 2,
     emoji: "🎬",
     tags: ["Culture", "Cinéma", "Pop Culture", "Dikkenek", "Bruxelles", "Belgique"],
     imageUrl: "https://media.ngroup.be/IMAGE/IMAGE-S1-00041/373312-dikkenek.jpg",
@@ -230,6 +280,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Culture",
     time: "il y a 2h",
     score: 96,
+    score_bruit: 1,
     emoji: "🏛️",
     tags: ["Culture", "Musées", "Expositions", "Patrimoine", "Beaux-Arts"],
     imageUrl: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=600&q=80",
@@ -245,6 +296,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Culture",
     time: "il y a 3h",
     score: 94,
+    score_bruit: 1,
     emoji: "🎭",
     tags: ["Culture", "Théâtre", "Spectacle", "Humour", "Scène"],
     imageUrl: "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=600&q=80",
@@ -260,6 +312,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Culture",
     time: "il y a 4h",
     score: 93,
+    score_bruit: 2,
     emoji: "📚",
     tags: ["Culture", "Littérature", "BD", "Livres", "Roman"],
     imageUrl: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=600&q=80",
@@ -275,6 +328,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Culture",
     time: "il y a 5h",
     score: 92,
+    score_bruit: 2,
     emoji: "🎸",
     tags: ["Culture", "Musique", "Concert", "Rock", "Légendes"],
     imageUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80",
@@ -290,6 +344,13 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Technologie",
     time: "il y a 25min",
     score: 99,
+    score_bruit: 4,
+    youtubeId: "kgh_wS_O21U",
+    points_cles_video: [
+      "Coup de pied rotatif inattendu délivré par un humanoïde bipède en plein recalibrage dynamique.",
+      "Défaut d'évitement lié à une erreur de segmentation LiDAR/vision stéréoscopique de l'opérateur.",
+      "Rappel urgent des protocoles de sécurité physique et des cages de confinement en apprentissage robotique."
+    ],
     emoji: "🥋",
     tags: ["Robotique", "Unitree", "Humanoïde", "Insolite", "High-Tech"],
     imageUrl: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=600&q=80",
@@ -305,6 +366,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Science",
     time: "il y a 20min",
     score: 98,
+    score_bruit: 1,
     emoji: "🚀",
     tags: ["Ariane 6", "Espace", "Arianespace", "Souveraineté"],
     imageUrl: "https://images.unsplash.com/photo-1517976487508-44249a37bc06?auto=format&fit=crop&w=600&q=80",
@@ -314,16 +376,17 @@ Le déploiement de Muse se déroulera en trois phases successives :
   {
     id: 1,
     featured: true,
-    title: "Claude 4 d'Anthropic bat les benchmarks GPT-4o sur les tâches de raisonnement complexe",
+    title: "Claude 5.5 d'Anthropic bat les benchmarks sur les tâches de raisonnement complexe",
     source: "Anthropic Blog",
     category: "IA",
     time: "il y a 1h",
     score: 97,
+    score_bruit: 1,
     emoji: "🤖",
     tags: ["Claude API", "LLM", "Benchmark"],
     imageUrl: "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=600&q=80",
-    summary: "Les nouveaux modèles de la famille Claude 4 démontrent des capacités de raisonnement mathématique et algorithmique en plusieurs étapes nettement supérieures aux modèles concurrents sur les benchmarks MATH, HumanEval et SWE-bench Verified.",
-    content: "Les résultats exhaustifs publiés par Anthropic ce matin révèlent que Claude 4 Opus franchit un nouveau palier historique en intelligence artificielle générale appliquée : le modèle atteint 92.3% sur le benchmark de raisonnement mathématique MATH, 96.1% sur l'évaluation de programmation HumanEval et un score inédit de 68.4% sur SWE-bench Verified, simulant la résolution autonome de tickets de code réels.\n\nCes gains de performance s'accompagnent d'une réduction drastique du taux d'hallucinations factuelles, désormais mesuré à moins de 1.8% sur les tests standardisés de vérification croisée. Selon les équipes de recherche d'Anthropic, ce bond en avant provient d'un nouveau régime d'entraînement basé sur l'alignement constitutionnel récursif et une architecture de mémoire hiérarchique à fenêtres d'attention dynamiques permettant de traiter jusqu'à 500 000 tokens en contexte continu sans dégradation.\n\nLes développeurs et entreprises peuvent d'ores et déjà intégrer Claude 4 via l'API publique mondiale d'Anthropic et sur les principales plateformes cloud partenaires, avec une tarification au token revue à la baisse de 20% par rapport à la génération précédente pour encourager les déploiements d'agents autonomes à grande échelle."
+    summary: "Les nouveaux modèles de la famille Claude 5.5 démontrent des capacités de raisonnement mathématique et algorithmique en plusieurs étapes nettement supérieures sur les benchmarks MATH, HumanEval et SWE-bench Verified.",
+    content: "Les résultats exhaustifs publiés par Anthropic ce matin révèlent que Claude 5.5 Opus franchit un nouveau palier historique en intelligence artificielle générale appliquée : le modèle atteint 94.8% sur le benchmark de raisonnement mathématique MATH, 97.5% sur l'évaluation de programmation HumanEval et un score inédit de 72.1% sur SWE-bench Verified, simulant la résolution autonome de tickets de code réels.\n\nCes gains de performance s'accompagnent d'une réduction drastique du taux d'hallucinations factuelles, désormais mesuré à moins de 1.2% sur les tests standardisés de vérification croisée. Selon les équipes de recherche d'Anthropic, ce bond en avant provient d'un nouveau régime d'entraînement basé sur l'alignement constitutionnel récursif et une architecture de mémoire hiérarchique à fenêtres d'attention dynamiques permettant de traiter jusqu'à 1 million de tokens en contexte continu sans dégradation.\n\nLes développeurs et entreprises peuvent d'ores et déjà intégrer Claude 5.5 via l'API publique mondiale d'Anthropic et sur les principales plateformes cloud partenaires, avec une tarification au token revue à la baisse de 20% par rapport à la génération précédente pour encourager les déploiements d'agents autonomes à grande échelle."
   },
   {
     id: 2,
@@ -333,6 +396,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Technologie",
     time: "il y a 2h",
     score: 91,
+    score_bruit: 1,
     emoji: "⚛️",
     tags: ["React", "JavaScript", "Performance"],
     imageUrl: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80",
@@ -347,6 +411,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "Local",
     time: "Dossier de suivi • Travaux en cours",
     score: 88,
+    score_bruit: 1,
     emoji: "🌊",
     tags: ["Occitanie", "Littoral", "Hérault", "Ville-Port", "Urbanisme"],
     imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80",
@@ -361,6 +426,7 @@ Le déploiement de Muse se déroulera en trois phases successives :
     category: "IA",
     time: "il y a 4h",
     score: 84,
+    score_bruit: 2,
     emoji: "🧠",
     tags: ["OpenAI", "LLM", "GPT"],
     imageUrl: "https://images.unsplash.com/photo-1677442136019-21780efad99a?auto=format&fit=crop&w=600&q=80",
@@ -892,11 +958,7 @@ export const upgradeVagueArticleIfKnown = (art: NewsArticle): NewsArticle => {
     }));
   }
 
-  if (
-    art.id === 1791807600000 ||
-    allText.includes("enfants rouges") ||
-    (allText.includes("marché") && (allText.includes("brûlé") || allText.includes("incendie")) && allText.includes("paris"))
-  ) {
+  if (art.id === 1791807600000) {
     return ensureArticleDeepData(sanitizeArticleTemporalConsistency({
       ...art,
       id: 1791807600000,
@@ -904,7 +966,7 @@ export const upgradeVagueArticleIfKnown = (art: NewsArticle): NewsArticle => {
       source: "Le Parisien & AFP",
       category: "Société",
       time: "Ce matin (12 oct. 2026)",
-      score: 100,
+      score: 88,
       emoji: "🔥🏛️",
       tags: ["Paris", "Incendie", "Marché des Enfants Rouges", "Marais", "Faits Divers", "Patrimoine", "3e Arrondissement"],
       imageUrl: art.imageUrl || "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80",
@@ -1124,6 +1186,84 @@ interface NewsFeedProps {
   setEasyModeLevel?: (val: number) => void;
   refreshFluxTrigger?: number;
   onOpenApiKeyModal?: () => void;
+}
+
+/**
+ * Sauvegarde résiliente du flux d'articles dans le localStorage avec gestion automatique
+ * et élégante des quotas de stockage du navigateur (QuotaExceededError).
+ */
+export function safeSaveArticles(articles: NewsArticle[]): void {
+  if (!articles || !Array.isArray(articles) || articles.length === 0) return;
+  const cleanArticles = deduplicateArticlesList(articles);
+
+  // 1. Tenter la sauvegarde directe du flux complet
+  try {
+    localStorage.setItem("infoperso_articles", JSON.stringify(cleanArticles));
+    return;
+  } catch (err: unknown) {
+    // Si quota dépassé, passer aux paliers d'élagage sans émettre d'erreur bloquante
+    const isQuotaError =
+      (err instanceof DOMException &&
+        (err.name === "QuotaExceededError" ||
+         err.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+         err.code === 22 ||
+         err.code === 1014)) ||
+      (typeof err === "object" && err !== null && "name" in err && (err as { name: string }).name === "QuotaExceededError");
+
+    if (!isQuotaError) {
+      return;
+    }
+  }
+
+  // 2. Nettoyer les clés temporaires/non-critiques pour libérer de l'espace
+  try {
+    const keysToClean = [
+      "infoperso_semantic_trail",
+      "infoperso_last_live_refresh"
+    ];
+    for (const key of keysToClean) {
+      try { localStorage.removeItem(key); } catch {}
+    }
+  } catch {}
+
+  // 3. Palier 1 : Sauvegarder les 40 articles les plus récents
+  try {
+    const top40 = articles.slice(0, 40);
+    localStorage.setItem("infoperso_articles", JSON.stringify(top40));
+    return;
+  } catch {}
+
+  // 4. Palier 2 : Sauvegarder les 25 articles les plus récents
+  try {
+    const top25 = articles.slice(0, 25);
+    localStorage.setItem("infoperso_articles", JSON.stringify(top25));
+    return;
+  } catch {}
+
+  // 5. Palier 3 : Sauvegarde allégée des 20 articles essentiels (texte plafonné à 2500 caractères)
+  try {
+    const lightweight20 = articles.slice(0, 20).map((a) => ({
+      id: a.id,
+      title: a.title,
+      summary: a.summary,
+      time: a.time,
+      category: a.category,
+      source: a.source,
+      tags: a.tags?.slice(0, 5),
+      score: a.score,
+      createdAt: a.createdAt,
+      isCustomGenerated: a.isCustomGenerated,
+      featured: a.featured,
+      score_bruit: a.score_bruit,
+      content: a.content ? (a.content.length > 2500 ? a.content.slice(0, 2500) + "..." : a.content) : a.summary
+    }));
+    localStorage.setItem("infoperso_articles", JSON.stringify(lightweight20));
+  } catch {
+    // Si le quota du domaine est saturé par d'autres données, vider la clé d'articles pour restaurer l'accès
+    try {
+      localStorage.removeItem("infoperso_articles");
+    } catch {}
+  }
 }
 
 export default function NewsFeed({
@@ -1540,12 +1680,13 @@ export default function NewsFeed({
         }
       }
 
-      // Guarantee strictly unique, valid, non-null numeric IDs
+      // Guarantee strictly unique, valid, non-null numeric IDs and zero duplicates
+      const dedupedList = deduplicateArticlesList(list || []);
       const finalSeenIds = new Set<number>();
       let fallbackCounter = 6000;
       const cleanFinalList: NewsArticle[] = [];
-      for (let i = 0; i < (list || []).length; i++) {
-        const rawArt = list[i];
+      for (let i = 0; i < dedupedList.length; i++) {
+        const rawArt = dedupedList[i];
         if (!rawArt) continue;
         const upgraded = upgradeVagueArticleIfKnown(rawArt);
         let safeId = typeof upgraded.id === "number" && !isNaN(upgraded.id) && upgraded.id > 0 ? upgraded.id : null;
@@ -1558,31 +1699,31 @@ export default function NewsFeed({
           id: safeId
         });
       }
-      return cleanFinalList;
+      const finalClean = deduplicateArticlesList(cleanFinalList);
+      try {
+        safeSaveArticles(finalClean);
+      } catch {}
+      return finalClean;
     } catch {
-      const defaultList = INITIAL_ARTICLES.map((art, idx) => ({
+      const defaultList = deduplicateArticlesList(INITIAL_ARTICLES.map((art, idx) => ({
         ...art,
-        id: Date.now() + 500 + idx,
-        createdAt: Date.now() - idx * 45 * 60 * 1000
-      }));
+        id: art.id || (Date.now() + 500 + idx),
+        createdAt: art.createdAt || (Date.now() - idx * 45 * 60 * 1000)
+      })));
       const sharedFromUrl = getSharedArticleFromUrl(defaultList);
       if (sharedFromUrl) {
         const upgradedShared = upgradeVagueArticleIfKnown(sharedFromUrl);
         const exists = defaultList.some((a) => a.id === upgradedShared.id || a.title.trim().toLowerCase() === upgradedShared.title.trim().toLowerCase());
         if (!exists) {
-          return [upgradedShared, ...defaultList];
+          return deduplicateArticlesList([upgradedShared, ...defaultList]);
         }
       }
-      return defaultList.map(upgradeVagueArticleIfKnown);
+      return deduplicateArticlesList(defaultList.map(upgradeVagueArticleIfKnown));
     }
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem("infoperso_articles", JSON.stringify(articles));
-    } catch (e) {
-      console.error("Failed to save articles", e);
-    }
+    safeSaveArticles(articles);
   }, [articles]);
 
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
@@ -2224,14 +2365,14 @@ export default function NewsFeed({
       }));
 
     // Feed combines: newly generated batch, user custom articles, saved articles, and rest
-    const fullFeed = [
+    const fullFeed = deduplicateArticlesList([
       ...top20New,
       ...customUserArticles.filter(c => !top20New.some(t => t.id === c.id)),
       ...uniqueSaved.filter(s => !customUserArticles.some(c => c.id === s.id)),
       ...remaining.filter(a => !uniqueSaved.some(s => s.id === a.id))
-    ];
+    ]);
     setArticles(fullFeed);
-    localStorage.setItem("infoperso_articles", JSON.stringify(fullFeed));
+    safeSaveArticles(fullFeed);
     localStorage.setItem("infoperso_last_updated", nowTime.toString());
 
     onNotify(`✨ Les 20 nouveaux articles ont été placés en tête absolue au tout début de la page !`);
@@ -2252,6 +2393,7 @@ export default function NewsFeed({
   };
 
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [minScore, setMinScore] = useState(40);
   const [sortBy, setSortBy] = useState<"score" | "date" | "time">("time");
   const isBig2 = easyModeLevel === 2;
@@ -2290,6 +2432,57 @@ export default function NewsFeed({
   const readerBodyRef = useRef<HTMLDivElement>(null);
   const [isListCollapsedInSplit, setIsListCollapsedInSplit] = useState<boolean>(false);
   const [selectedYouTubeFilter, setSelectedYouTubeFilter] = useState<YouTubeFilterType>("this_week");
+  const [isPlayingEmbeddedVideo, setIsPlayingEmbeddedVideo] = useState<boolean>(false);
+  const hasHandledInitialShareUrl = useRef<boolean>(false);
+
+  // Clean close of article: resets reader state, cleans search query param in URL, and restores scroll
+  const handleCloseArticle = () => {
+    const closedArticleId = selectedArticle?.id;
+    setSelectedArticle(null);
+    setIsPlayingEmbeddedVideo(false);
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("article") || url.searchParams.has("art") || url.searchParams.has("sdata") || url.searchParams.has("d")) {
+        url.searchParams.delete("article");
+        url.searchParams.delete("art");
+        url.searchParams.delete("sdata");
+        url.searchParams.delete("d");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + (url.hash && !url.hash.includes("article") ? url.hash : ""));
+      }
+    } catch {}
+    document.body.style.overflow = "";
+
+    requestAnimationFrame(() => {
+      if (closedArticleId) {
+        const cardEl = document.getElementById(`article-card-${closedArticleId}`);
+        if (cardEl) {
+          cardEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return;
+        }
+      }
+      const topEl = document.getElementById("articles-feed-top");
+      if (topEl) {
+        topEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  };
+
+  // 3. Curseur de filtrage anti-bruit / anti-anxiété (1 à 5)
+  const [maxNoiseLevel, setMaxNoiseLevel] = useState<number>(() => {
+    try {
+      const s = localStorage.getItem("infoperso_max_noise");
+      return s ? Math.min(5, Math.max(1, parseInt(s, 10))) : 5;
+    } catch {
+      return 5;
+    }
+  });
+
+
+  // Encart repliable « Points clés de la vidéo » (3 puces)
+  const [isVideoPointsExpanded, setIsVideoPointsExpanded] = useState<boolean>(true);
+
+  // Dossier d'analyse critique & Chiffres clés repliable
+  const [isAnalysisDossierExpanded, setIsAnalysisDossierExpanded] = useState<boolean>(false);
 
   // Quiz states
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
@@ -2716,7 +2909,7 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
       }
       setActiveReadingStartTime(null);
     }
-  }, [selectedArticle]);
+  }, [selectedArticle?.id]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -2754,23 +2947,48 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
   };
 
   // Live RSS state & controls
+  // Live RSS state & controls (Twitter-style real-time breaking news)
+  const THIRTY_MINUTES_MS = 30 * 60 * 1000; // 30 minutes (une demi-heure)
   const [isLiveRssActive, setIsLiveRssActive] = useState<boolean>(false);
   const [isLoadingLiveRss, setIsLoadingLiveRss] = useState<boolean>(false);
   const [liveRssCount, setLiveRssCount] = useState<number>(0);
+  const [lastLiveRefreshTime, setLastLiveRefreshTime] = useState<number>(() => {
+    try {
+      const s = localStorage.getItem("infoperso_last_live_refresh");
+      return s ? Number(s) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
-  // Fetch live RSS news from aggregated sources (Le Figaro, France Info, Le Monde, Les Echos...)
+  // Fetch live RSS news from aggregated sources (BFM TV, Le Figaro, France Info, Le Parisien, Le Monde, Les Echos...)
   const handleFetchLiveRss = async (forceRefresh: boolean = false, showToast: boolean = true) => {
+    const nowTime = Date.now();
+    const lastLiveRefreshStr = localStorage.getItem("infoperso_last_live_refresh");
+
+    // Si ce n'est pas un rafraîchissement forcé (ex: clic explicite), respecter le délai minimal de 30 minutes
+    if (!forceRefresh && lastLiveRefreshStr) {
+      const elapsed = nowTime - Number(lastLiveRefreshStr);
+      if (elapsed < THIRTY_MINUTES_MS) {
+        const remainingMin = Math.ceil((THIRTY_MINUTES_MS - elapsed) / 60000);
+        console.log(`[InfoPerso Live] Cooldown actif : prochain rechargement automatique dans ${remainingMin} min.`);
+        if (showToast) {
+          onNotify(`⏱️ Fil d'actualité déjà à jour (prochain rechargement automatique dans ${remainingMin} min).`);
+        }
+        return;
+      }
+    }
+
     setIsLoadingLiveRss(true);
     try {
       const res = await safeFetchJson<{ success: boolean; count: number; articles: NewsArticle[]; error?: string }>(
-        `/api/rss/live?refresh=${forceRefresh ? "true" : "false"}`
+        `/api/rss/live?refresh=true`
       );
       if (res.ok && res.data?.success && Array.isArray(res.data.articles)) {
         const incoming = res.data.articles;
         setLiveRssCount(incoming.length);
-        const nowTime = Date.now();
 
-        // 1. Extraire les 20 articles les plus récents et leur garantir la priorité absolue en tête
+        // 1. Extraire les 20 dépêches les plus récentes et leur garantir la priorité absolue en tête
         const top20New: NewsArticle[] = [];
         const seenNewTitles = new Set<string>();
 
@@ -2786,33 +3004,39 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
               ...item,
               id: safeId,
               isNewTop20: true,
-              createdAt: nowTime + 10000000 - top20New.length * 1000,
-              time: "À l'instant",
-              featured: true,
+              isLatestGeneration: true,
+              createdAt: nowTime - (i * 60000), // Échelonnement chronologique descendant
+              time: i === 0 ? "À l'instant" : `il y a ${i * 2 + 1} min`,
+              featured: i < 3,
               tags: Array.from(new Set(["Direct Live", "Nouveau", ...(item.tags || [])]))
             })));
           }
         }
 
-        setArticles((prev) => {
-          const top20Ids = new Set(top20New.map((a) => a.id));
-          const top20Titles = new Set(top20New.map((a) => a.title.trim().toLowerCase().slice(0, 35)));
+        if (top20New.length > 0) {
+          setArticles((prev) => {
+            const top20Ids = new Set(top20New.map((a) => a.id));
+            const top20Titles = new Set(top20New.map((a) => a.title.trim().toLowerCase().slice(0, 35)));
 
-          // Retirer les doublons de la liste précédente et dé-marquer les anciens articles à la une
-          const cleanedPrev = prev
-            .filter((a) => !top20Ids.has(a.id) && !top20Titles.has(a.title.trim().toLowerCase().slice(0, 35)))
-            .map((a) => ({ ...a, featured: false, isNewTop20: false }));
+            // Retirer les doublons de la liste précédente et dé-marquer les anciens articles à la une
+            const cleanedPrev = prev
+              .filter((a) => !top20Ids.has(a.id) && !top20Titles.has(a.title.trim().toLowerCase().slice(0, 35)))
+              .map((a) => ({ ...a, featured: false, isNewTop20: false, isLatestGeneration: false }));
 
-          const fullFeed = [...top20New, ...cleanedPrev];
-          try {
-            localStorage.setItem("infoperso_articles", JSON.stringify(fullFeed));
-            localStorage.setItem("infoperso_last_updated", nowTime.toString());
-          } catch {}
-          return fullFeed;
-        });
+            const fullFeed = deduplicateArticlesList([...top20New, ...cleanedPrev]);
+            try {
+              safeSaveArticles(fullFeed);
+              localStorage.setItem("infoperso_last_live_refresh", nowTime.toString());
+              localStorage.setItem("infoperso_last_updated", nowTime.toString());
+            } catch {}
+            return fullFeed;
+          });
 
-        if (showToast) {
-          onNotify(`🔥 Les 20 nouveaux articles ont été placés en premier dans la liste !`);
+          setLastLiveRefreshTime(nowTime);
+
+          if (showToast) {
+            onNotify(`⚡ 20 nouvelles dépêches d'actualité en direct rechargées en tête de fil !`);
+          }
         }
       }
     } catch (err) {
@@ -2855,7 +3079,6 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
           }
           return [...fresh, ...prev];
         });
-        setIsLiveRssActive(true);
         onNotify(`⚡ ${found.length} dépêches d'actualité en direct trouvées pour "${query}"`);
       } else {
         onNotify(`Aucune dépêche récente trouvée pour "${query}".`);
@@ -2868,13 +3091,15 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
     }
   };
 
-  // Automatically load and open a shared article based on the URL query param, hash, or server registry
+  // Automatically load and open a shared article based on the URL query param, hash, or server registry (Only once on initial mount)
   useEffect(() => {
+    if (hasHandledInitialShareUrl.current) return;
     let isCancelled = false;
     const loadSharedArticle = async () => {
       try {
         const rawShared = await resolveSharedArticleAsync(articles);
-        if (rawShared && !isCancelled) {
+        if (rawShared && !isCancelled && !hasHandledInitialShareUrl.current) {
+          hasHandledInitialShareUrl.current = true;
           const shared = upgradeVagueArticleIfKnown(rawShared);
           setArticles((prev) => {
             const exists = prev.some((a) => a.id === shared.id || a.title.trim().toLowerCase() === shared.title.trim().toLowerCase());
@@ -2903,40 +3128,133 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
     };
     loadSharedArticle();
 
-    // Also fetch fresh Live RSS in the background on startup and place 20 new articles at the top
-    handleFetchLiveRss(true, false);
+    // Synchronize all saved/generated articles from disk registry so nothing is ever lost
+    const syncPersistedArticles = async () => {
+      try {
+        const res = await safeFetchJson<{ success: boolean; articles: NewsArticle[] }>("/api/articles/shared?all=true");
+        if (res.ok && res.data?.success && Array.isArray(res.data.articles) && res.data.articles.length > 0 && !isCancelled) {
+          const diskArticles = res.data.articles;
+          setArticles((prev) => {
+            const dedupedPrev = deduplicateArticlesList(prev);
+            const seenIds = new Set(dedupedPrev.map((a) => a.id));
+            const seenTitles = new Set(dedupedPrev.map((a) => a.title.trim().toLowerCase()));
+            const toAdd: NewsArticle[] = [];
+            for (const item of diskArticles) {
+              if (!item || !item.title) continue;
+              if (seenIds.has(item.id) || seenTitles.has(item.title.trim().toLowerCase())) continue;
+              seenIds.add(item.id);
+              seenTitles.add(item.title.trim().toLowerCase());
+              toAdd.push(ensureArticleDeepData(upgradeVagueArticleIfKnown(item)));
+            }
+            if (toAdd.length > 0) {
+              const merged = deduplicateArticlesList([...dedupedPrev, ...toAdd]);
+              try {
+                safeSaveArticles(merged);
+              } catch {}
+              return merged;
+            }
+            return dedupedPrev;
+          });
+        }
+      } catch (err) {
+        console.warn("Could not sync persisted articles from disk:", err);
+      }
+    };
+    syncPersistedArticles();
+
+    // Rechargement automatique à chaque arrivée sur l'application avec délai minimum d'une demi-heure (30 min)
+    const checkArrivalAutoRefresh = async () => {
+      const lastRefreshStr = localStorage.getItem("infoperso_last_live_refresh");
+      const now = Date.now();
+      const isCooldownElapsed = !lastRefreshStr || (now - Number(lastRefreshStr) >= THIRTY_MINUTES_MS);
+
+      if (isCooldownElapsed) {
+        console.log("[InfoPerso] Arrivée de l'utilisateur : rechargement de 20 nouveaux articles (>30 min écoulées)...");
+        await handleFetchLiveRss(true, false);
+      } else {
+        const remainingMin = Math.ceil((THIRTY_MINUTES_MS - (now - Number(lastRefreshStr))) / 60000);
+        console.log(`[InfoPerso] Fil d'actualité direct à jour (prochain rechargement automatique dans ${remainingMin} min).`);
+      }
+    };
+
+    checkArrivalAutoRefresh();
 
     return () => {
       isCancelled = true;
     };
   }, []);
 
-  // Hourly automatic refresh checking mechanism
+  // Surveillance périodique : recharge automatiquement 20 articles dès que 30 minutes sont écoulées
   useEffect(() => {
-    const checkAndAutoRefresh = async () => {
-      const lastUpdatedStr = localStorage.getItem("infoperso_last_updated");
+    const checkPeriodicAutoRefresh = async () => {
+      const lastRefreshStr = localStorage.getItem("infoperso_last_live_refresh");
       const now = Date.now();
-      const oneHourMs = 3600000;
 
-      if (!lastUpdatedStr || (now - Number(lastUpdatedStr) >= oneHourMs)) {
-        console.log("Last updated more than 1 hour ago. Refreshing feed automatically...");
-        await handleBulkGenerateIAArticles(true);
+      if (!lastRefreshStr || (now - Number(lastRefreshStr) >= THIRTY_MINUTES_MS)) {
+        console.log("[InfoPerso] 30 minutes révolues pendant la session : actualisation automatique du direct (20 articles)...");
+        await handleFetchLiveRss(true, true);
       }
     };
 
-    const delayTimer = setTimeout(() => {
-      checkAndAutoRefresh();
-    }, 1500);
-
     const pollInterval = setInterval(() => {
-      checkAndAutoRefresh();
-    }, 30000);
+      checkPeriodicAutoRefresh();
+    }, 60000); // Vérifie chaque minute
 
     return () => {
-      clearTimeout(delayTimer);
       clearInterval(pollInterval);
     };
-  }, [apiKeys, customInterests, categoryWeights, tagWeights]);
+  }, []);
+
+  // Fermeture rapide de l'article avec Échap et défilement clavier fluide (Touches Flèches, Espace, Page Bas/Haut)
+  useEffect(() => {
+    if (!selectedArticle) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleCloseArticle();
+        return;
+      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.key === "ArrowDown" || e.key === "PageDown" || (e.key === " " && !e.shiftKey)) {
+        if (readerBodyRef.current) {
+          e.preventDefault();
+          const step = e.key === "ArrowDown" ? 150 : Math.max(250, readerBodyRef.current.clientHeight * 0.75);
+          readerBodyRef.current.scrollBy({ top: step, behavior: "smooth" });
+        }
+      } else if (e.key === "ArrowUp" || e.key === "PageUp" || (e.key === " " && e.shiftKey)) {
+        if (readerBodyRef.current) {
+          e.preventDefault();
+          const step = e.key === "ArrowUp" ? 150 : Math.max(250, readerBodyRef.current.clientHeight * 0.75);
+          readerBodyRef.current.scrollBy({ top: -step, behavior: "smooth" });
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedArticle]);
+
+  // Support natif du bouton Retour (Navigateur / Android) pour fermer l'article
+  useEffect(() => {
+    const handlePopState = () => {
+      const url = new URL(window.location.href);
+      const articleIdStr = url.searchParams.get("article") || url.searchParams.get("art");
+      if (!articleIdStr) {
+        setSelectedArticle(null);
+        setIsPlayingEmbeddedVideo(false);
+        document.body.style.overflow = "";
+      } else {
+        const idNum = Number(articleIdStr);
+        const found = articles.find((a) => a.id === idNum);
+        if (found) {
+          setSelectedArticle(ensureArticleDeepData(found));
+          setIsPlayingEmbeddedVideo(false);
+          if (readerBodyRef.current) readerBodyRef.current.scrollTop = 0;
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [articles]);
 
   // Custom Interests system for personalization with full user freedom
   useEffect(() => {
@@ -3012,7 +3330,7 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
           setArticles((prev) => {
             const updated = [extracted, ...prev.filter((a) => a.id !== extracted.id).map(a => ({ ...a, isLatestGeneration: false }))];
             try {
-              localStorage.setItem("infoperso_articles", JSON.stringify(updated));
+              safeSaveArticles(updated);
               localStorage.setItem("infoperso_last_updated", Date.now().toString());
             } catch {}
             return updated;
@@ -3280,7 +3598,7 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
             ...prev.filter(a => a.id !== newArticle.id).map(a => ({ ...a, isLatestGeneration: false }))
           ];
           try {
-            localStorage.setItem("infoperso_articles", JSON.stringify(updated));
+            safeSaveArticles(updated);
             localStorage.setItem("infoperso_last_updated", Date.now().toString());
           } catch {}
           return updated;
@@ -3997,11 +4315,14 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     (blacklistedTags.length > 0 ? 1 : 0) +
     (hiddenArticleIds.length > 0 ? 1 : 0) +
     (activeCultureShortcut ? 1 : 0) +
+    (maxNoiseLevel < 5 ? 1 : 0) +
     (discoveryMode !== "balanced" ? 1 : 0);
 
   const handleRestoreTwentyArticles = () => {
     setSearchQuery("");
     setMinScore(40);
+    setMaxNoiseLevel(5);
+    try { localStorage.setItem("infoperso_max_noise", "5"); } catch {}
     setReadingTimeFilter("all");
     setOnlyBookmarks(false);
     setBandwidthSaver(false);
@@ -4112,121 +4433,169 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     return "bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]";
   };
 
-  // Filter & Sort
-  const personalizedArticles = computePersonalizedArticles();
-  const filteredArticles = personalizedArticles
-    .filter((art: any) => {
-      // Exclude if hidden by algorithm preferences
-      if (art.isExcluded) return false;
+  // Pagination & performance optimization state
+  const [visibleRegularCount, setVisibleRegularCount] = useState<number>(20);
 
-      // Direct Live RSS Filter
-      if (isLiveRssActive) {
-        const isLiveItem = art.isLive || (art.tags || []).includes("Direct Live") || (art.tags || []).includes("Fil Info");
-        if (!isLiveItem) return false;
-      }
-      
-      // 1. Search Query
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = art.title.toLowerCase().includes(q);
-        const matchesSummary = art.summary.toLowerCase().includes(q);
-        const matchesTags = art.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchesTitle && !matchesSummary && !matchesTags) return false;
-      }
-      // 2. Category Sidebar Filter
-      if (activeFilter && art.category !== activeFilter) {
-        return false;
-      }
-      // 3. Tag Sidebar Filter
-      if (activeTag && !art.tags.includes(activeTag)) {
-        return false;
-      }
-      // 3b. Trending Tag Cloud Click & Multi-selection
-      if (clickedTrendTag && !art.tags.includes(clickedTrendTag)) {
-        return false;
-      }
-      if (selectedTrendTags.length > 0) {
-        const matchesAnyTag = selectedTrendTags.some((t) => (art.tags || []).includes(t));
-        if (!matchesAnyTag) return false;
-      }
-      // 3c. Semantic exploration trail
-      if (semanticTrail.length > 0) {
-        const artText = `${art.title} ${art.summary} ${art.content || ""} ${(art.tags || []).join(" ")}`.toLowerCase();
-        const matchesTrail = semanticTrail.some((step) => {
-          const norm = normalizeKeyword(step);
-          return (art.tags || []).some((t) => normalizeKeyword(t).includes(norm)) || artText.includes(norm);
-        });
-        if (!matchesTrail) return false;
-      }
-      // 3c. Bookmarks Only Toggle
-      if (onlyBookmarks && !savedIds.has(art.id)) {
-        return false;
-      }
-      // 3d. Reading Time Filter
-      const wordCount = art.content.split(/\s+/).length;
-      const readingMinutes = Math.ceil(wordCount / 140);
-      if (readingTimeFilter === "short" && readingMinutes >= 2) {
-        return false;
-      }
-      if (readingTimeFilter === "medium" && (readingMinutes < 2 || readingMinutes > 4)) {
-        return false;
-      }
-      if (readingTimeFilter === "long" && readingMinutes < 5) {
-        return false;
-      }
-      // 3e. Culture Shortcut Filter (5 Raccourcis)
-      if (activeCultureShortcut) {
-        const shortcut = CULTURE_SHORTCUTS.find((s) => s.id === activeCultureShortcut);
-        if (shortcut) {
-          const matchesTag = (art.tags || []).some((t: string) =>
-            shortcut.matchTags.some((mt) => mt.toLowerCase() === t.toLowerCase())
-          );
-          const matchesText = `${art.title} ${art.summary || ""}`
-            .toLowerCase()
-            .includes(shortcut.tag.toLowerCase());
-          if (!matchesTag && !(art.category === "Culture" && matchesText)) {
+  useEffect(() => {
+    setVisibleRegularCount(20);
+  }, [searchQuery, activeFilter, activeTag, clickedTrendTag, selectedTrendTags, semanticTrail, onlyBookmarks, readingTimeFilter, activeCultureShortcut, minScore, maxNoiseLevel, sortBy, isLiveRssActive]);
+
+  // 1. Scoring de personnalisation mémoïsé indépendamment du filtrage textuel ou des catégories
+  const personalizedArticles = useMemo(() => {
+    return computePersonalizedArticles();
+  }, [
+    articles,
+    hiddenArticleIds,
+    blacklistedTags,
+    categoryWeights,
+    tagWeights,
+    sourceWeights,
+    followedTags,
+    naturalRadar,
+    cultureBoostActive,
+    discoveryMode
+  ]);
+
+  // 2. Filtrage & Tri léger réactif avec deferredSearchQuery (60/120 FPS constant sans latence de frappe)
+  const filteredArticles = useMemo(() => {
+    return personalizedArticles
+      .filter((art: any) => {
+        // Exclude if hidden by algorithm preferences
+        if (art.isExcluded) return false;
+
+        // Direct Live RSS Filter
+        if (isLiveRssActive) {
+          const isLiveItem = art.isLive || (art.tags || []).includes("Direct Live") || (art.tags || []).includes("Fil Info");
+          if (!isLiveItem) return false;
+        }
+        
+        // 1. Search Query (avec deferredSearchQuery pour fluidité absolue au clavier)
+        if (deferredSearchQuery) {
+          const q = deferredSearchQuery.toLowerCase();
+          const matchesTitle = art.title.toLowerCase().includes(q);
+          const matchesSummary = art.summary.toLowerCase().includes(q);
+          const matchesTags = art.tags.some((t: string) => t.toLowerCase().includes(q));
+          if (!matchesTitle && !matchesSummary && !matchesTags) return false;
+        }
+        // 2. Category Sidebar Filter
+        if (activeFilter && art.category !== activeFilter) {
+          return false;
+        }
+        // 3. Tag Sidebar Filter
+        if (activeTag && !art.tags.includes(activeTag)) {
+          return false;
+        }
+        // 3b. Trending Tag Cloud Click & Multi-selection
+        if (clickedTrendTag && !art.tags.includes(clickedTrendTag)) {
+          return false;
+        }
+        if (selectedTrendTags.length > 0) {
+          const matchesAnyTag = selectedTrendTags.some((t: string) => (art.tags || []).includes(t));
+          if (!matchesAnyTag) return false;
+        }
+        // 3c. Semantic exploration trail
+        if (semanticTrail.length > 0) {
+          const artText = `${art.title} ${art.summary} ${art.content || ""} ${(art.tags || []).join(" ")}`.toLowerCase();
+          const matchesTrail = semanticTrail.some((step) => {
+            const norm = normalizeKeyword(step);
+            return (art.tags || []).some((t: string) => normalizeKeyword(t).includes(norm)) || artText.includes(norm);
+          });
+          if (!matchesTrail) return false;
+        }
+        // 3c. Bookmarks Only Toggle
+        if (onlyBookmarks && !savedIds.has(art.id)) {
+          return false;
+        }
+        // 3d. Reading Time Filter
+        const wordCount = art.content.split(/\s+/).length;
+        const readingMinutes = Math.ceil(wordCount / 140);
+        if (readingTimeFilter === "short" && readingMinutes >= 2) {
+          return false;
+        }
+        if (readingTimeFilter === "medium" && (readingMinutes < 2 || readingMinutes > 4)) {
+          return false;
+        }
+        if (readingTimeFilter === "long" && readingMinutes < 5) {
+          return false;
+        }
+        // 3e. Culture Shortcut Filter (5 Raccourcis)
+        if (activeCultureShortcut) {
+          const shortcut = CULTURE_SHORTCUTS.find((s) => s.id === activeCultureShortcut);
+          if (shortcut) {
+            const matchesTag = (art.tags || []).some((t: string) =>
+              shortcut.matchTags.some((mt) => mt.toLowerCase() === t.toLowerCase())
+            );
+            const matchesText = `${art.title} ${art.summary || ""}`
+              .toLowerCase()
+              .includes(shortcut.tag.toLowerCase());
+            if (!matchesTag && !(art.category === "Culture" && matchesText)) {
+              return false;
+            }
+          }
+        }
+        // 4. Relevance Score Slider
+        if (art.score < minScore) {
+          return false;
+        }
+        // 5. Curseur de filtrage anti-bruit / anti-anxiété (1 à 5)
+        if (maxNoiseLevel < 5) {
+          const noise = typeof art.score_bruit === "number" ? art.score_bruit : 2;
+          if (noise > maxNoiseLevel) {
             return false;
           }
         }
-      }
-      // 4. Relevance Score Slider
-      if (art.score < minScore) {
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      // 1. Priorité absolue : le tout dernier article généré en direct (isLatestGeneration)
-      const aLatest = (a as any).isLatestGeneration ? 1 : 0;
-      const bLatest = (b as any).isLatestGeneration ? 1 : 0;
-      if (aLatest !== bLatest) return bLatest - aLatest;
+        return true;
+      })
+      .sort((a, b) => {
+        // 1. Priorité absolue : le tout dernier article généré en direct (isLatestGeneration)
+        const aLatest = (a as any).isLatestGeneration ? 1 : 0;
+        const bLatest = (b as any).isLatestGeneration ? 1 : 0;
+        if (aLatest !== bLatest) return bLatest - aLatest;
 
-      // 2. Priorité aux 20 nouveaux articles de la génération actuelle (isNewTop20)
-      const aNew = (a as any).isNewTop20 ? 1 : 0;
-      const bNew = (b as any).isNewTop20 ? 1 : 0;
-      if (aNew !== bNew) return bNew - aNew;
+        // 2. Priorité aux 20 nouveaux articles de la génération actuelle (isNewTop20)
+        const aNew = (a as any).isNewTop20 ? 1 : 0;
+        const bNew = (b as any).isNewTop20 ? 1 : 0;
+        if (aNew !== bNew) return bNew - aNew;
 
-      // 3. Articles personnalisés créés sur mesure par l'utilisateur (isCustomGenerated)
-      const aCustom = (a as any).isCustomGenerated ? 1 : 0;
-      const bCustom = (b as any).isCustomGenerated ? 1 : 0;
-      if (aCustom !== bCustom) return bCustom - aCustom;
+        // 3. Articles personnalisés créés sur mesure par l'utilisateur (isCustomGenerated)
+        const aCustom = (a as any).isCustomGenerated ? 1 : 0;
+        const bCustom = (b as any).isCustomGenerated ? 1 : 0;
+        if (aCustom !== bCustom) return bCustom - aCustom;
 
-      const aTime = (a as any).createdAt || (typeof a.id === "number" ? a.id : 0);
-      const bTime = (b as any).createdAt || (typeof b.id === "number" ? b.id : 0);
+        const aTime = (a as any).createdAt || (typeof a.id === "number" ? a.id : 0);
+        const bTime = (b as any).createdAt || (typeof b.id === "number" ? b.id : 0);
 
-      // 4. Par défaut : tri chronologique strict (les plus récents en premier)
-      if (sortBy === "time" || sortBy === "date") {
+        // 4. Par défaut : tri chronologique strict (les plus récents en premier)
+        if (sortBy === "time" || sortBy === "date") {
+          return bTime - aTime;
+        }
+
+        // 5. Tri par score : départagé par score puis par date de création
+        if (b.score !== a.score) return b.score - a.score;
         return bTime - aTime;
-      }
-
-      // 5. Tri par score : départagé par score puis par date de création
-      if (b.score !== a.score) return b.score - a.score;
-      return bTime - aTime;
-    });
+      });
+  }, [
+    personalizedArticles,
+    deferredSearchQuery,
+    activeFilter,
+    activeTag,
+    clickedTrendTag,
+    selectedTrendTags,
+    semanticTrail,
+    onlyBookmarks,
+    readingTimeFilter,
+    activeCultureShortcut,
+    minScore,
+    maxNoiseLevel,
+    sortBy,
+    isLiveRssActive,
+    savedIds,
+    easyModeLevel
+  ]);
 
   // Les 20 nouveaux articles sont systématiquement placés en premier dans la liste (indices 0 à 19)
-  const featuredArticles = filteredArticles.slice(0, 20);
-  const regularArticles = filteredArticles.slice(20);
+  const featuredArticles = useMemo(() => filteredArticles.slice(0, 20), [filteredArticles]);
+  const regularArticles = useMemo(() => filteredArticles.slice(20), [filteredArticles]);
 
   // Generate live AI summary for current article
   const handleGenerateSummary = async (article: NewsArticle) => {
@@ -4323,7 +4692,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
             const parsedSaved = JSON.parse(currentSaved);
             if (Array.isArray(parsedSaved)) {
               const updated = parsedSaved.map((a: any) => (a.id === article.id ? clarified : a));
-              localStorage.setItem("infoperso_articles", JSON.stringify(updated));
+              safeSaveArticles(updated);
             }
           }
         } catch {}
@@ -4356,7 +4725,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
           const parsed = JSON.parse(currentSaved);
           if (Array.isArray(parsed)) {
             const updated = parsed.map((a: any) => (a.id === article.id ? clarified : a));
-            localStorage.setItem("infoperso_articles", JSON.stringify(updated));
+            safeSaveArticles(updated);
           }
         }
       } catch {}
@@ -4451,7 +4820,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
               const parsedSaved = JSON.parse(currentSaved);
               if (Array.isArray(parsedSaved)) {
                 const updated = parsedSaved.map((a: any) => (a.id === article.id ? clarified : a));
-                localStorage.setItem("infoperso_articles", JSON.stringify(updated));
+                safeSaveArticles(updated);
               }
             }
           } catch {}
@@ -4615,6 +4984,26 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       const contentText = fixTemporalConsistency(cleanText(article.content));
       const articlePhotoUrl = article.imageUrl || currentReaderPhoto || getArticleIllustration(article);
       
+      // Détection souveraine des vidéos YouTube associées
+      const detectedYouTubeIds = new Set<string>();
+      const articleYt =
+        article.youtubeId ||
+        (article.youtubeUrl ? extractYouTubeVideoId(article.youtubeUrl) : null) ||
+        extractYouTubeVideoId(article.content || "") ||
+        extractYouTubeVideoId(article.summary || "") ||
+        (article.originalUrl ? extractYouTubeVideoId(article.originalUrl) : null) ||
+        (article.url ? extractYouTubeVideoId(article.url) : null);
+      if (articleYt) detectedYouTubeIds.add(articleYt);
+
+      deepDiveHistory.forEach(item => {
+        const qId = extractYouTubeVideoId(item.question);
+        if (qId) detectedYouTubeIds.add(qId);
+        const aIds = extractAllYouTubeIds(item.answer);
+        aIds.forEach(id => detectedYouTubeIds.add(id));
+      });
+
+      const youtubeIds = Array.from(detectedYouTubeIds);
+      
       if (format === "html") {
         const isInitialDark = htmlTheme === "dark";
         const htmlContent = `<!DOCTYPE html>
@@ -4635,15 +5024,15 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       --meta-color: #64748b;
       --title-color: #0f172a;
       --p-color: #1e293b;
-      --summary-bg: #eef2ff;
-      --summary-border: #6366f1;
-      --summary-text: #312e81;
+      --lead-bg: #f5f7ff;
+      --lead-border: #4f46e5;
+      --lead-text: #1e1b4b;
       --btn-bg: #ffffff;
       --btn-border: #cbd5e1;
       --btn-color: #0f172a;
       --btn-hover-bg: #e2e8f0;
       --footer-color: #64748b;
-      --font-size: 20px;
+      --font-size: 19px;
     }
     
     body.dark-mode {
@@ -4657,9 +5046,9 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       --meta-color: #a1a1aa;
       --title-color: #ffffff;
       --p-color: #f4f4f5;
-      --summary-bg: #131226;
-      --summary-border: #818cf8;
-      --summary-text: #e0e7ff;
+      --lead-bg: #121124;
+      --lead-border: #818cf8;
+      --lead-text: #e0e7ff;
       --btn-bg: #1f1f23;
       --btn-border: #3f3f46;
       --btn-color: #ffffff;
@@ -4680,13 +5069,12 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     
     .container {
       max-width: 720px;
-      margin: 12px auto;
+      margin: 10px auto;
       background: var(--card-bg);
-      padding: 32px 24px;
+      padding: 28px 24px;
       border-radius: 16px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
       border: 1px solid var(--border-color);
-      transition: background-color 0.2s ease, border-color 0.2s ease;
     }
     
     .control-bar {
@@ -4694,9 +5082,9 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       justify-content: space-between;
       align-items: center;
       background: var(--control-bg);
-      padding: 12px 16px;
-      border-radius: 12px;
-      margin-bottom: 28px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 20px;
       border: 1px solid var(--border-color);
       flex-wrap: wrap;
       gap: 10px;
@@ -4704,7 +5092,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     
     .logo-text {
       font-weight: 800;
-      font-size: 14px;
+      font-size: 13px;
       color: var(--logo-color);
       letter-spacing: 0.05em;
       text-transform: uppercase;
@@ -4715,7 +5103,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     
     .btn-group {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     
@@ -4723,10 +5111,10 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       background: var(--btn-bg);
       border: 1px solid var(--btn-border);
       color: var(--btn-color);
-      padding: 8px 14px;
-      font-size: 14px;
+      padding: 6px 12px;
+      font-size: 13px;
       font-weight: 600;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -4739,107 +5127,147 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       background: var(--btn-hover-bg);
     }
     
-    .btn:active {
-      transform: scale(0.96);
-    }
-    
-    .meta-box {
-      font-size: 15px;
+    .article-meta {
+      font-size: 13px;
       color: var(--meta-color);
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 2px dashed var(--border-color);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
       font-weight: 500;
     }
     
+    .badge-source {
+      background: var(--control-bg);
+      border: 1px solid var(--border-color);
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-weight: 700;
+      color: var(--title-color);
+    }
+    
     h1 {
-      font-size: 1.55em;
-      line-height: 1.35;
+      font-size: 1.6em;
+      line-height: 1.3;
       color: var(--title-color);
       margin-top: 0;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+    
+    .article-lead {
+      font-size: calc(var(--font-size) * 1.05);
+      line-height: 1.6;
+      font-weight: 600;
+      color: var(--lead-text);
+      background-color: var(--lead-bg);
+      border-left: 4px solid var(--lead-border);
+      padding: 14px 18px;
+      border-radius: 0 10px 10px 0;
+      margin: 14px 0 22px 0;
     }
 
     .photo-box {
-      margin: 18px 0 24px 0;
-      border-radius: 12px;
+      margin: 12px 0 20px 0;
+      border-radius: 10px;
       overflow: hidden;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      max-height: 150px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
       border: 1px solid var(--border-color);
       background: var(--control-bg);
     }
     .hero-photo {
       width: 100%;
-      max-height: 420px;
+      height: 140px;
       object-fit: cover;
       display: block;
     }
     .photo-caption {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--meta-color);
-      padding: 8px 14px;
+      padding: 5px 12px;
       font-style: italic;
+      background: var(--control-bg);
+    }
+
+    .video-card {
+      margin: 22px 0 26px 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: var(--control-bg);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .video-header {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--title-color);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--card-bg);
+    }
+    .video-wrapper {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 */
+      height: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    .video-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
     }
     
-    .section-header {
-      font-size: 0.85em;
-      color: var(--primary-color);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    .subheading {
+      font-size: 1.15em;
       font-weight: 800;
-      margin-top: 36px;
-      margin-bottom: 12px;
-      border-bottom: 2px solid var(--primary-color);
-      padding-bottom: 4px;
-      display: inline-block;
+      color: var(--primary-color);
+      margin-top: 26px;
+      margin-bottom: 8px;
     }
     
     p.content-p {
       font-size: var(--font-size);
       line-height: 1.7;
       margin-top: 0;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       color: var(--p-color);
       text-align: justify;
     }
     
-    .summary-box {
-      background-color: var(--summary-bg);
-      border-left: 5px solid var(--summary-border);
-      padding: 18px 22px;
-      border-radius: 0 12px 12px 0;
-      margin: 16px 0;
-    }
-    
-    .summary-box p {
-      font-size: var(--font-size);
-      font-weight: 600;
-      color: var(--summary-text);
-      margin: 0;
-      line-height: 1.65;
-    }
-    
     .deepdive-box {
-      background-color: var(--summary-bg);
-      border-left: 5px solid var(--summary-border);
+      background-color: var(--control-bg);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid var(--primary-color);
       padding: 16px 20px;
-      border-radius: 0 12px 12px 0;
-      margin: 16px 0;
+      border-radius: 0 10px 10px 0;
+      margin: 20px 0;
     }
     
     .deepdive-box h3 {
       margin-top: 0;
-      font-size: 17px;
-      color: var(--summary-text);
+      font-size: 16px;
+      color: var(--title-color);
       font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     
     .footer {
-      margin-top: 56px;
-      padding-top: 20px;
+      margin-top: 48px;
+      padding-top: 18px;
       border-top: 1px solid var(--border-color);
-      font-size: 13px;
+      font-size: 12px;
       color: var(--footer-color);
       text-align: center;
     }
@@ -4852,8 +5280,6 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
         --text-color: #000 !important;
         --p-color: #000 !important;
         --title-color: #000 !important;
-        --summary-bg: #f5f3ff !important;
-        --summary-text: #000 !important;
         padding: 0;
       }
       .container {
@@ -4883,46 +5309,91 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       </div>
     </div>
     
-    <div class="meta-box">
-      <strong>Source :</strong> ${article.source} &nbsp;|&nbsp; <strong>Catégorie :</strong> ${article.category}
+    <div class="article-meta">
+      <span class="badge-source">${article.source}</span>
+      <span>•</span>
+      <span>${article.category}</span>
+      <span>•</span>
+      <span>Édition InfoPerso</span>
     </div>
     
     <h1>${article.title}</h1>
 
+    ${summaryText ? `
+    <div class="article-lead">
+      ${summaryText}
+    </div>
+    ` : ''}
+
     ${articlePhotoUrl ? `
     <div class="photo-box">
       <img src="${articlePhotoUrl}" alt="${article.title}" class="hero-photo" onerror="this.style.display='none'" />
-      <div class="photo-caption">📷 Photo d'illustration • ${article.category || "Actualité"} • Licence libre de droit (Unsplash / Wikimedia)</div>
+      <div class="photo-caption">📷 Photo d'illustration • ${article.category || "Actualité"}</div>
     </div>
     ` : ''}
     
-    <div class="section-header">=== RESUME / ANALYSE ===</div>
-    <div class="summary-box">
-      <p id="summary-text">${summaryText}</p>
-    </div>
-    
-    <div class="section-header">=== TEXTE INTEGRAL ===</div>
-    <div id="content-body">
-      ${contentText.split('\n\n').map(p => `<p class="content-p">${p.trim()}</p>`).join('')}
-    </div>
-    ${deepDiveHistory.length > 0 ? `
-    <div class="section-header">=== FICHES D'APPROFONDISSEMENT (IA) ===</div>
-    ${deepDiveHistory.map((item, idx) => `
-      <div class="deepdive-box">
-        ${item.parentQuestion ? `<div style="font-size:12px;color:#4f46e5;font-weight:600;margin-bottom:6px;">↳ Recreusé à la suite de : « ${item.parentQuestion} »</div>` : ''}
-        <h3>${item.parentQuestion ? '🔬' : '❓'} #${idx + 1} ${item.question}</h3>
-        <p class="content-p" style="margin-bottom: 0; white-space: pre-wrap; text-align: left;">${cleanText(item.answer)}</p>
+    ${youtubeIds.length > 0 ? `
+    <div class="video-card">
+      <div class="video-header">📺 Vidéo de décryptage & analyse associée (Souverain sans cookies tiers)</div>
+      <div class="video-wrapper">
+        <iframe 
+          src="${getYouTubeEmbedUrl(youtubeIds[0])}" 
+          title="Vidéo YouTube InfoPerso"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen
+        ></iframe>
       </div>
-    `).join('')}
+    </div>
+    ` : ''}
+    
+    <div id="content-body">
+      ${contentText.split('\n\n').map(p => {
+        const trimmed = p.trim();
+        if (trimmed.startsWith('### ')) {
+          return `<div class="subheading">${trimmed.replace(/^###\s*/, '')}</div>`;
+        }
+        return `<p class="content-p">${trimmed}</p>`;
+      }).join('')}
+    </div>
+
+    ${deepDiveHistory.length > 0 ? `
+    <div style="margin-top: 36px; padding-top: 18px; border-top: 2px dashed var(--border-color);">
+      <h2 style="font-size: 1.15em; font-weight: 800; color: var(--primary-color); margin-bottom: 16px;">
+        🔍 Approfondissements & Décryptages
+      </h2>
+      ${deepDiveHistory.map((item, idx) => {
+        const isYtUrl = Boolean(extractYouTubeVideoId(item.question));
+        const cleanQuestion = isYtUrl ? "📺 Analyse & Décryptage vidéo associé" : item.question;
+        const cleanedAnswer = purgeFillerWords(cleanText(item.answer));
+        const itemYtId = extractYouTubeVideoId(item.question);
+
+        return `
+        <div class="deepdive-box">
+          ${item.parentQuestion ? `<div style="font-size:12px;color:var(--primary-color);font-weight:600;margin-bottom:6px;">↳ Recreusé à la suite de : « ${item.parentQuestion} »</div>` : ''}
+          <h3>${isYtUrl ? '📺' : '❓'} #${idx + 1} ${cleanQuestion}</h3>
+          
+          ${itemYtId && itemYtId !== youtubeIds[0] ? `
+          <div class="video-card" style="margin: 12px 0;">
+            <div class="video-wrapper">
+              <iframe src="${getYouTubeEmbedUrl(itemYtId)}" title="Vidéo" allowfullscreen></iframe>
+            </div>
+          </div>
+          ` : ''}
+
+          <p class="content-p" style="margin-bottom: 0; white-space: pre-wrap; text-align: left;">${cleanedAnswer}</p>
+        </div>
+        `;
+      }).join('')}
+    </div>
     ` : ''}
     
     <div class="footer">
-      Document généré par <strong>InfoPerso</strong> le ${new Date().toLocaleDateString("fr-FR")}
+      Document généré par <strong>InfoPerso</strong> le ${new Date().toLocaleDateString("fr-FR")} • ALPHABETTE SASU
     </div>
   </div>
   
   <script>
-    let currentSize = 20;
+    let currentSize = 19;
     let isDark = ${isInitialDark ? "true" : "false"};
     
     document.documentElement.style.setProperty('--font-size', currentSize + 'px');
@@ -4987,7 +5458,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
             : "📥 Fichier HTML (Fond Clair & Grandes Lettres) téléchargé !"
         );
       } else {
-        const fileContent = `=== INFOPERSO - SYNTHESE ET ACTUALITE ===\nTitre: ${article.title}\nSource: ${article.source} | Catégorie: ${article.category}\n\n=== RESUME / ANALYSE ===\n${summaryText}\n\n=== TEXTE INTEGRAL ===\n${contentText}\n\nDocument généré par InfoPerso le ${new Date().toLocaleDateString("fr-FR")}`;
+        const fileContent = `# ${article.title}\nSource: ${article.source} | Catégorie: ${article.category}\nDate: ${formatArticleDateTime(article)}\n\n## Chapeau éditorial\n${summaryText}\n\n## Développement & Analyse de fond\n${contentText}\n\n---\nDocument édité par InfoPerso (ALPHABETTE SASU) le ${new Date().toLocaleDateString("fr-FR")}`;
         const normalizedContent = fileContent.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
 
         const element = document.createElement("a");
@@ -5021,14 +5492,28 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
   const handleOpenArticle = (art: NewsArticle) => {
     const deepArt = ensureArticleDeepData(art);
     setSelectedArticle(deepArt);
-    setArticles((prev) => prev.map((a) => (a.id === deepArt.id ? deepArt : a)));
+    setIsPlayingEmbeddedVideo(false);
+    if (deepArt !== art && (!art.strategicAnalysis || !art.keyFigures || art.keyFigures.length < 3)) {
+      setArticles((prev) => prev.map((a) => (a.id === deepArt.id ? deepArt : a)));
+    }
     onMarkRead(deepArt.id);
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("article", String(deepArt.id));
+      window.history.replaceState({ articleId: deepArt.id }, "", url.toString());
+    } catch {}
+
+    // Never lock document.body.style.overflow to avoid freezing touch events on mobile browsers / iframes
+
     if (readerBodyRef.current) {
       readerBodyRef.current.scrollTop = 0;
+      readerBodyRef.current.focus();
     }
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       if (readerBodyRef.current) {
         readerBodyRef.current.scrollTop = 0;
+        readerBodyRef.current.focus();
       }
       if (window.innerWidth >= 768) {
         const readerEl = document.getElementById("active-article-reader");
@@ -5036,7 +5521,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
           readerEl.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
-    }, 40);
+    });
   };
 
   const isSearchQueryUrl = /^https?:\/\//i.test(searchQuery.trim());
@@ -5152,9 +5637,9 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
           </button>
         </div>
 
-        {/* Action Controls & Filters Row (Ultra-compact) */}
-        <div className="home-toolbar w-full flex items-center justify-between gap-1 flex-wrap">
-          <div className="flex items-center gap-1 flex-wrap">
+        {/* Action Controls & Filters Row (Ultra-compact & Gain d'une ligne entière) */}
+        <div className="home-toolbar w-full flex items-center justify-between gap-1.5 flex-nowrap overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1 shrink-0 flex-nowrap">
             {/* Sort By */}
             <div className="flex items-center rounded-lg p-0.5 border border-slate-700/40 bg-slate-800/20 text-[11px]">
               <button
@@ -5182,9 +5667,68 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer flex items-center gap-1 ${
                   isLiveRssActive ? "bg-rose-600 text-white" : "text-rose-500 opacity-80 hover:opacity-100"
                 }`}
+                title="Filtrer uniquement le fil d'actualité en direct"
               >
                 <span>Live {liveRssCount > 0 ? `(${liveRssCount})` : ""}</span>
               </button>
+            </div>
+
+            {/* Curseur de filtrage anti-bruit / anti-anxiété (1 à 5) */}
+            <div 
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg border text-[10px] sm:text-[11px] transition-all ${
+                maxNoiseLevel < 5
+                  ? isDark
+                    ? "bg-amber-950/40 border-amber-500/50 text-amber-200 shadow-xs ring-1 ring-amber-500/20"
+                    : "bg-amber-50 border-amber-400 text-amber-950 shadow-xs ring-1 ring-amber-300/40"
+                  : isDark
+                    ? "bg-slate-800/80 border-slate-700/70 text-slate-300"
+                    : "bg-white border-slate-300 text-slate-700 shadow-2xs"
+              }`}
+              title="Curseur anti-bruit & anti-anxiété : 1 = Information de fond pure, 5 = Flux complet sans filtrage"
+            >
+              <div className="flex items-center gap-1 shrink-0">
+                <SlidersHorizontal className={`w-2.5 h-2.5 ${maxNoiseLevel <= 2 ? "text-emerald-400" : maxNoiseLevel <= 3 ? "text-amber-400" : "text-slate-400"}`} />
+                <span className="font-bold whitespace-nowrap hidden xs:inline">Anti-bruit :</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="5"
+                step="1"
+                value={maxNoiseLevel}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setMaxNoiseLevel(val);
+                  try { localStorage.setItem("infoperso_max_noise", String(val)); } catch {}
+                  onNotify(
+                    val === 1
+                      ? "🛡️ Anti-bruit maximal (1/5) : Information de fond pure sanctuarisée"
+                      : val === 5
+                      ? "🔊 Flux complet (tous niveaux de bruit 1 à 5)"
+                      : `⚡ Seuil anti-bruit réglé à ≤ ${val}/5`
+                  );
+                }}
+                className="w-12 sm:w-16 h-1 bg-slate-600 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                aria-label="Filtrage anti-bruit de 1 à 5"
+              />
+              <span className={`font-mono font-extrabold text-[10px] sm:text-[11px] shrink-0 ${
+                maxNoiseLevel <= 2 ? "text-emerald-500 dark:text-emerald-300" : maxNoiseLevel <= 3 ? "text-amber-500 dark:text-amber-300" : ""
+              }`}>
+                ≤{maxNoiseLevel}
+              </span>
+              {maxNoiseLevel < 5 && (
+                <button
+                  onClick={() => {
+                    setMaxNoiseLevel(5);
+                    try { localStorage.setItem("infoperso_max_noise", "5"); } catch {}
+                    onNotify("🔊 Filtre anti-bruit réinitialisé (flux complet)");
+                  }}
+                  className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer shrink-0 ml-0.5"
+                  title="Réinitialiser le filtre anti-bruit à 5/5"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             {/* En photo */}
@@ -5196,13 +5740,13 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 try { localStorage.setItem("infoperso_photo_mode", String(next)); } catch {}
                 onNotify(next ? "📷 Mode « En photo » activé !" : "📰 Mode texte standard activé");
               }}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+              className={`px-1.5 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
                 photoMode
                   ? "bg-amber-500 text-white border-amber-600"
                   : isDark ? "bg-slate-800/80 text-slate-300 border-slate-700" : "bg-white text-slate-700 border-slate-300"
               }`}
             >
-              <Camera className="w-3 h-3 text-amber-500" />
+              <Camera className="w-2.5 h-2.5 text-amber-500" />
               <span>Photo</span>
             </button>
 
@@ -5213,48 +5757,64 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 className={`p-1 rounded transition-all cursor-pointer ${viewMode === "grid" ? "bg-cyan-500 text-white" : "opacity-60"}`}
                 title="Grille"
               >
-                <Grid className="w-3 h-3" />
+                <Grid className="w-2.5 h-2.5" />
               </button>
               <button
                 onClick={() => handleSetViewMode("list")}
                 className={`p-1 rounded transition-all cursor-pointer ${viewMode === "list" ? "bg-cyan-500 text-white" : "opacity-60"}`}
                 title="Liste"
               >
-                <List className="w-3 h-3" />
+                <List className="w-2.5 h-2.5" />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 flex-wrap">
+          {/* Right: Structure d'Écran Pliant (Standard rapetissé placé à droite) & Quick Actions */}
+          <div className="flex items-center gap-1 shrink-0 ml-auto flex-nowrap">
+            {/* Structure d'Écran / Pliant (Placé à droite pour gagner une ligne entière comme demandé) */}
+            <FoldableBar
+              foldMode={foldable.foldMode}
+              activePosture={foldable.activePosture}
+              isFoldableDetected={foldable.isFoldableDetected}
+              hingeGuard={foldable.hingeGuard}
+              onSetFoldMode={foldable.setFoldMode}
+              onSetHingeGuard={foldable.setHingeGuard}
+              isDark={isDark}
+              onNotify={onNotify}
+            />
+
             {/* Générer 20 articles */}
             <button
               onClick={() => handleBulkGenerateIAArticles(false)}
               disabled={isBulkGenerating}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
+              className={`px-1.5 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
                 isBulkGenerating ? "opacity-75 cursor-not-allowed bg-slate-800 text-slate-400" : "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
               }`}
+              title="Générer 20 articles récents avec IA"
             >
-              {isBulkGenerating ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" /> : <Sparkles className="w-3 h-3 text-cyan-400" />}
-              <span>20 Articles</span>
+              {isBulkGenerating ? <RefreshCw className="w-2.5 h-2.5 animate-spin text-cyan-400" /> : <Sparkles className="w-2.5 h-2.5 text-cyan-400" />}
+              <span className="hidden xs:inline">20 Articles</span>
             </button>
 
             {/* Flash 90s */}
             <button
               onClick={() => setShowPodcastModal(true)}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border ${
+              className={`px-1.5 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border ${
                 isDark ? "bg-zinc-900 border-zinc-700 text-white" : "bg-white border-zinc-300 text-zinc-900"
               }`}
+              title="Flash vocal 90 secondes"
             >
-              <Radio className="w-3 h-3 opacity-80" />
-              <span>Flash 90s</span>
+              <Radio className="w-2.5 h-2.5 opacity-80" />
+              <span className="hidden xs:inline">Flash</span>
             </button>
 
             {/* Flux RSS */}
             <button
               onClick={() => setShowRssModal(true)}
-              className={`px-1.5 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border ${
+              className={`px-1.5 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all border ${
                 isDark ? "bg-amber-500/15 border-amber-500/40 text-amber-300" : "bg-amber-50 border-amber-300 text-amber-800"
               }`}
+              title="Gérer les flux RSS / OPML"
             >
               <Rss className="w-2.5 h-2.5 text-amber-400" />
               <span>RSS</span>
@@ -5267,24 +5827,14 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 refreshMeta();
                 onNotify(`💾 ${meta.count} articles en cache (${meta.sizeKb} Ko)`);
               }}
-              className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
+              className={`px-1.5 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-semibold flex items-center gap-1 border transition-all cursor-pointer ${
                 !isOnline ? "bg-amber-500/20 border-amber-500 text-amber-300" : isDark ? "bg-slate-800/70 border-slate-700 text-slate-300" : "bg-white border-slate-300 text-slate-700"
               }`}
+              title="État du cache Workbox"
             >
               <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-400" : "bg-amber-400"}`} />
-              <span>Cache</span>
+              <span className="hidden xs:inline">Cache</span>
             </button>
-
-            <FoldableBar
-              foldMode={foldable.foldMode}
-              activePosture={foldable.activePosture}
-              isFoldableDetected={foldable.isFoldableDetected}
-              hingeGuard={foldable.hingeGuard}
-              onSetFoldMode={foldable.setFoldMode}
-              onSetHingeGuard={foldable.setHingeGuard}
-              isDark={isDark}
-              onNotify={onNotify}
-            />
           </div>
         </div>
       </div>
@@ -5359,205 +5909,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
         </div>
       )}
 
-      {/* 🧭 BARRE DE CURATION ET THEMATIQUES COMPACTE (Dépliable à la demande pour préserver l'espace) */}
-      <div className={`p-1.5 sm:p-2 rounded-2xl border transition-all ${
-        isDark ? "bg-slate-900/60 border-slate-800" : "bg-slate-50 border-slate-200"
-      }`}>
-        <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar py-0.5 px-1 text-xs">
-          <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
-            <span className="text-[10px] sm:text-[11px] font-bold opacity-60 uppercase tracking-wider shrink-0 flex items-center gap-1">
-              <Compass className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Thèmes &amp; Curation :</span>
-            </span>
 
-            {/* Tab 1: Centres d'intérêt ciblés */}
-            <button
-              onClick={() => setActiveDiscoveryTab(activeDiscoveryTab === "interests" ? "none" : "interests")}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition-all cursor-pointer ${
-                activeDiscoveryTab === "interests"
-                  ? "bg-cyan-500 text-white border-cyan-400 shadow-xs"
-                  : clickedTrendTag || selectedTrendTags.length > 0
-                  ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-bold"
-                  : isDark ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/60" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-              }`}
-              title="Afficher les 5 centres d'intérêt ciblés (Robotique, Insolite, IA, etc.)"
-            >
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span>🎯 Thèmes ciblés (5)</span>
-              {activeDiscoveryTab === "interests" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 opacity-60" />}
-            </button>
-
-            {/* Tab 2: Art & Culture (5 raccourcis) */}
-            <button
-              onClick={() => setActiveDiscoveryTab(activeDiscoveryTab === "culture" ? "none" : "culture")}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition-all cursor-pointer ${
-                activeDiscoveryTab === "culture"
-                  ? "bg-rose-600 text-white border-rose-500 shadow-xs"
-                  : activeCultureShortcut || cultureBoostActive
-                  ? "bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold"
-                  : isDark ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/60" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-              }`}
-              title="Afficher les 5 raccourcis et filtres Art & Culture (Dikkenek, Expos, Théâtre...)"
-            >
-              <Palette className="w-3 h-3 text-rose-400" />
-              <span>🎨 Art &amp; Culture (5)</span>
-              {(activeCultureShortcut || cultureBoostActive) && (
-                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-              )}
-              {activeDiscoveryTab === "culture" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 opacity-60" />}
-            </button>
-
-            {/* Tab 3: Mixeur & Radar Personnel */}
-            <button
-              onClick={() => setActiveDiscoveryTab(activeDiscoveryTab === "mixer" ? "none" : "mixer")}
-              className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 border transition-all cursor-pointer ${
-                activeDiscoveryTab === "mixer"
-                  ? "bg-indigo-600 text-white border-indigo-500 shadow-xs"
-                  : isDark ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/60" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-              }`}
-              title="Ajuster le dosage éditorial et le radar naturel"
-            >
-              <SlidersHorizontal className="w-3 h-3 text-indigo-400" />
-              <span>🎛️ Mixeur &amp; Radar</span>
-              <span className="text-[10px] opacity-75 font-mono capitalize">({discoveryMode})</span>
-              {activeDiscoveryTab === "mixer" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 opacity-60" />}
-            </button>
-          </div>
-
-          {/* Right: Quick shortcut to open Settings Volet */}
-          <button
-            onClick={() => setIsSettingsVoletOpen(true)}
-            className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline shrink-0 hidden sm:flex items-center gap-1 cursor-pointer transition-colors"
-          >
-            <Sliders className="w-3 h-3 text-indigo-400" />
-            <span>Tous les réglages</span>
-          </button>
-        </div>
-
-        {/* CONTENU DÉPLIABLE DU THÈME CHOISI */}
-        {activeDiscoveryTab === "interests" && (
-          <div className="pt-2 mt-1.5 border-t border-slate-700/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-xs">
-            <span className="text-[11px] font-bold text-cyan-400 shrink-0 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              <span>Filtres thématiques :</span>
-            </span>
-            {[
-              { label: "🥋 Robotique & Unitree", tag: "Robotique", cat: "Technologie" },
-              { label: "⚡ Insolite High-Tech", tag: "Insolite", cat: "Technologie" },
-              { label: "🤖 Humanoïdes & IA", tag: "Humanoïde", cat: "IA" },
-              { label: "🔥 Incendies & Environnement", tag: "Incendies", cat: "Environnement" },
-              { label: "🧬 Biotech & Science", tag: "Biotech", cat: "Science" }
-            ].map((item) => {
-              const isSelected = searchQuery.toLowerCase().includes(item.tag.toLowerCase()) || clickedTrendTag === item.tag;
-              return (
-                <button
-                  key={item.label}
-                  onClick={() => {
-                    if (isSelected) {
-                      setSearchQuery("");
-                      setClickedTrendTag(null);
-                    } else {
-                      setSearchQuery(item.tag);
-                      setClickedTrendTag(item.tag);
-                      if (!followedTags.includes(item.tag)) {
-                        const nextFollowed = [...followedTags, item.tag];
-                        setFollowedTags(nextFollowed);
-                        localStorage.setItem("infoperso_followed_tags", JSON.stringify(nextFollowed));
-                      }
-                      const updatedWeights = { ...tagWeights, [item.tag]: "boost" as const };
-                      setTagWeights(updatedWeights);
-                      localStorage.setItem("infoperso_tag_weights", JSON.stringify(updatedWeights));
-                      onNotify(`🎯 Thème « ${item.label} » ciblé en priorité dans votre flux !`);
-                    }
-                  }}
-                  className={`compact-action-btn px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer border flex items-center gap-1 ${
-                    isSelected
-                      ? "bg-cyan-500 text-white border-cyan-400 shadow-sm"
-                      : isDark
-                      ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700/60"
-                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300/80"
-                  }`}
-                >
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {activeDiscoveryTab === "culture" && (
-          <div className="pt-2 mt-1.5 border-t border-rose-500/20">
-            <CultureBarAndModal
-              isDark={isDark}
-              theme={displayMode}
-              activeCultureShortcut={activeCultureShortcut}
-              onSelectShortcut={(shortcutId) => {
-                setActiveCultureShortcut(shortcutId);
-                if (shortcutId) {
-                  const sc = CULTURE_SHORTCUTS.find((s) => s.id === shortcutId);
-                  if (sc) {
-                    setClickedTrendTag(sc.tag);
-                  }
-                } else {
-                  setClickedTrendTag(null);
-                }
-              }}
-              cultureBoostActive={cultureBoostActive}
-              onToggleCultureBoost={handleToggleCultureBoost}
-              cultureWeight={categoryWeights["Culture"] !== undefined ? categoryWeights["Culture"] : 3}
-              onUpdateCultureWeight={handleUpdateCultureWeight}
-              showModal={showCultureModal}
-              onOpenModal={() => setShowCultureModal(true)}
-              onCloseModal={() => setShowCultureModal(false)}
-              articles={articles}
-              onOpenArticle={handleOpenArticle}
-              savedIds={savedIds}
-              onToggleSave={onToggleSave}
-              onApplyCulturePack={handleApplyCulturePack}
-              onNotify={onNotify}
-            />
-          </div>
-        )}
-
-        {activeDiscoveryTab === "mixer" && (
-          <div className="pt-2 mt-1.5 border-t border-indigo-500/20">
-            <EditorialMixerBar
-              theme={displayMode}
-              isDark={isDark}
-              categoryWeights={categoryWeights}
-              onUpdateCategoryWeight={updateCategoryWeight}
-              onSetAllCategoryWeights={setAllCategoryWeights}
-              tagWeights={tagWeights}
-              onUpdateTagWeight={updateTagWeight}
-              sourceWeights={sourceWeights}
-              onUpdateSourceWeight={updateSourceWeight}
-              followedTags={followedTags}
-              onToggleFollowTag={handleToggleFollowTag}
-              blacklistedTags={blacklistedTags}
-              onAddBlacklistedTag={handleAddBlacklistedTag}
-              onRemoveBlacklistedTag={handleRemoveBlacklistedTag}
-              hiddenArticleIds={hiddenArticleIds}
-              onHideArticle={(id) => {
-                const next = [...hiddenArticleIds, id];
-                setHiddenArticleIds(next);
-                localStorage.setItem("infoperso_hidden_article_ids", JSON.stringify(next));
-                onNotify("Article masqué du flux.");
-              }}
-              onUnhideAllArticles={handleUnhideAllArticles}
-              discoveryMode={discoveryMode}
-              onSetDiscoveryMode={(m) => {
-                setDiscoveryMode(m);
-                localStorage.setItem("infoperso_discovery_mode", m);
-              }}
-              naturalRadar={naturalRadar}
-              onApplyNaturalRadar={handleApplyNaturalRadar}
-              onClearNaturalRadar={handleClearNaturalRadar}
-              onNotify={onNotify}
-              onResetAllPersonalization={handleResetAllPersonalization}
-            />
-          </div>
-        )}
-      </div>
 
       {/* Active Filter Chips Summary (if any active) */}
       {activeFiltersCount > 0 && (
@@ -5588,6 +5940,12 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               Score ≥ {minScore}%
               <button onClick={() => setMinScore(40)} className="hover:text-cyan-200 cursor-pointer">✕</button>
+            </span>
+          )}
+          {maxNoiseLevel < 5 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+              Anti-bruit ≤ {maxNoiseLevel}/5
+              <button onClick={() => { setMaxNoiseLevel(5); try { localStorage.setItem("infoperso_max_noise", "5"); } catch {} }} className="hover:text-amber-100 cursor-pointer">✕</button>
             </span>
           )}
           {readingTimeFilter !== "all" && (
@@ -5795,7 +6153,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 ? "hidden"
                 : (foldable.isBookMode
                     ? "col-span-5 sticky top-14 sm:top-16 max-h-[calc(100vh-76px)] overflow-y-auto pr-1 sm:pr-1.5 scrollbar space-y-3 sm:space-y-3.5"
-                    : "sm:landscape:col-span-5 md:col-span-5 lg:col-span-5 xl:col-span-4 sm:landscape:sticky sm:landscape:top-12 md:sticky md:top-16 lg:top-16 sm:landscape:max-h-[calc(100vh-56px)] md:max-h-[calc(100vh-76px)] lg:max-h-[calc(100vh-76px)] sm:landscape:overflow-y-auto md:overflow-y-auto pr-1 sm:pr-1.5 scrollbar space-y-3 sm:space-y-3.5"
+                    : "hidden sm:landscape:block md:block sm:landscape:col-span-5 md:col-span-5 lg:col-span-5 xl:col-span-4 sm:landscape:sticky sm:landscape:top-12 md:sticky md:top-16 lg:top-16 sm:landscape:max-h-[calc(100vh-56px)] md:max-h-[calc(100vh-76px)] lg:max-h-[calc(100vh-76px)] sm:landscape:overflow-y-auto md:overflow-y-auto pr-1 sm:pr-1.5 scrollbar space-y-3 sm:space-y-3.5"
                   ))
             : "md:col-span-12 lg:col-span-12 space-y-4 sm:space-y-6"
         }>
@@ -5821,50 +6179,9 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
             </div>
           )}
 
-          {/* 1. LES 20 NOUVEAUX ARTICLES MIS EN PREMIER DANS LA LISTE */}
+          {/* 1. ARTICLES PRIORITAIRES & EN TÊTE DE LISTE */}
           {featuredArticles.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
-                <div className="flex items-center gap-2">
-                  <Flame className={`w-4 h-4 ${
-                    isFun
-                      ? "text-yellow-500 fill-yellow-400 animate-bounce"
-                      : isCyber
-                      ? "text-[#00ffcc]"
-                      : isSobre
-                      ? isDark ? "text-amber-400" : "text-amber-600"
-                      : isWarm
-                      ? "text-amber-800"
-                      : isDark
-                      ? "text-amber-400 fill-amber-400/20"
-                      : "text-amber-600 fill-amber-600/20"
-                  }`} />
-                  <h3 className={`font-bold text-[11px] sm:text-xs tracking-wider uppercase ${
-                    isSobre
-                      ? isDark ? "text-zinc-100 font-black" : "text-zinc-900 font-black"
-                      : isWarm
-                      ? isDark ? "text-amber-100 font-serif font-black" : "text-amber-950 font-serif font-black"
-                      : isCyber
-                      ? "text-cyan-400 font-mono font-bold"
-                      : isFun
-                      ? isDark ? "text-white font-black" : "text-black font-black"
-                      : isDark
-                      ? "text-zinc-100 font-extrabold"
-                      : "text-zinc-900 font-extrabold"
-                  }`}>
-                    Les Nouveaux Articles & Vos Générations (En tête de page)
-                  </h3>
-                </div>
-                <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border ${
-                  isDark
-                    ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
-                    : "bg-emerald-50 border-emerald-300 text-emerald-850"
-                }`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  {Math.min(featuredArticles.length, 20)} articles prioritaires en direct
-                </span>
-              </div>
-
               <div className={`grid gap-3 sm:gap-4 feed-articles-container ${selectedArticle ? "grid-cols-1" : (viewMode === "grid" && !isBig2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}`}>
                 {featuredArticles.map((art, idx) => {
                   const isSaved = savedIds.has(art.id);
@@ -5874,8 +6191,10 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                   return (
                     <motion.div
                       drag="x"
+                      dragDirectionLock
                       dragConstraints={{ left: 0, right: 0 }}
-                      dragElastic={0.4}
+                      dragElastic={0.2}
+                      style={{ touchAction: "pan-y" }}
                       onDragEnd={(e, info) => {
                         if (info.offset.x > 120) {
                           handleSwipeRight(art);
@@ -5886,6 +6205,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       key={`feat-${art.id}-${idx}`}
                       id={`article-card-${art.id}`}
                       onClick={() => handleOpenArticle(art)}
+                      onTap={() => handleOpenArticle(art)}
                       className={`${getCardContainerClass()} overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 group h-full relative touch-pan-y ${
                         isCurrentActive ? "ring-2 ring-indigo-500 shadow-md border-indigo-500/80 bg-indigo-500/10 dark:bg-indigo-950/30" : ""
                       }`}
@@ -5987,6 +6307,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                                 alt={art.title}
                                 referrerPolicy="no-referrer"
                                 loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = getFallbackCategoryIllustration(art.category);
@@ -6254,7 +6575,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
               </div>
             ) : (
               <div className={`grid gap-3 sm:gap-4 feed-articles-container ${selectedArticle ? "grid-cols-1" : (viewMode === "grid" && !isBig2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1")}`}>
-                {regularArticles.map((art, idx) => {
+                {regularArticles.slice(0, visibleRegularCount).map((art, idx) => {
                   const catColor = CATEGORY_COLORS[art.category] || { text: "text-zinc-400", bg: "bg-zinc-850/50", border: "border-white/5" };
                   const isSaved = savedIds.has(art.id);
                   const isRead = readIds.has(art.id);
@@ -6263,8 +6584,10 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                   return (
                     <motion.div
                       drag="x"
+                      dragDirectionLock
                       dragConstraints={{ left: 0, right: 0 }}
-                      dragElastic={0.4}
+                      dragElastic={0.2}
+                      style={{ touchAction: "pan-y" }}
                       onDragEnd={(e, info) => {
                         if (info.offset.x > 120) {
                           handleSwipeRight(art);
@@ -6275,6 +6598,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       key={`reg-${art.id}-${idx}`}
                       id={`article-card-${art.id}`}
                       onClick={() => handleOpenArticle(art)}
+                      onTap={() => handleOpenArticle(art)}
                       className={`${getCardContainerClass()} overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 relative touch-pan-y ${
                         isCurrentActive
                           ? "ring-2 ring-indigo-500 shadow-md border-indigo-500/80 bg-indigo-500/10 dark:bg-indigo-950/30"
@@ -6374,6 +6698,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                                 alt={art.title}
                                 referrerPolicy="no-referrer"
                                 loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = getFallbackCategoryIllustration(art.category);
@@ -6486,6 +6811,16 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                     </motion.div>
                   );
                 })}
+                {visibleRegularCount < regularArticles.length && (
+                  <div className="col-span-full text-center py-6">
+                    <button
+                      onClick={() => setVisibleRegularCount((prev) => prev + 20)}
+                      className="px-6 py-3 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-all cursor-pointer"
+                    >
+                      Charger plus d'articles ({regularArticles.length - visibleRegularCount} restants)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -6505,20 +6840,20 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
         <div 
           onClick={(e) => {
             if (e.target === e.currentTarget) {
-              setSelectedArticle(null);
+              handleCloseArticle();
             }
           }}
           className={
             selectedArticle
               ? isReaderMaximized
-                ? "fixed inset-x-0 bottom-0 top-[84px] sm:top-[96px] z-50 bg-white dark:bg-zinc-950 flex flex-col p-1 sm:p-2 w-full h-[calc(100dvh-84px)] sm:h-[calc(100dvh-96px)] overflow-hidden shadow-2xl"
+                ? "fixed inset-0 z-50 bg-white dark:bg-zinc-950 flex flex-col p-1 sm:p-2.5 w-full h-[100dvh] overflow-hidden shadow-2xl"
                 : isListCollapsedInSplit
-                  ? "fixed inset-x-0 bottom-0 top-[84px] sm:top-[96px] landscape:top-12 z-50 bg-white dark:bg-zinc-950 flex flex-col p-0 sm:landscape:sticky sm:landscape:inset-auto sm:landscape:top-14 sm:landscape:z-20 sm:landscape:bg-transparent sm:landscape:p-0 sm:landscape:h-[calc(100vh-60px)] md:sticky md:inset-auto md:top-[96px] lg:top-[96px] md:z-20 md:bg-transparent md:p-0 md:h-[calc(100vh-104px)] lg:h-[calc(100vh-104px)] col-span-12 w-full transition-all shadow-2xl md:shadow-none"
+                  ? "fixed inset-0 z-50 md:sticky md:top-14 md:z-20 md:h-[calc(100vh-76px)] col-span-12 w-full flex flex-col bg-white dark:bg-zinc-950 md:bg-transparent shadow-2xl md:shadow-none"
                   : foldable.isBookMode
-                    ? "col-span-7 sticky top-[84px] sm:top-[96px] z-20 bg-transparent p-0 h-[calc(100vh-104px)] w-full transition-all"
+                    ? "col-span-7 sticky top-14 z-20 bg-transparent p-0 h-[calc(100vh-76px)] w-full transition-all"
                     : foldable.isFlexMode
-                      ? "fixed inset-x-0 bottom-0 top-[84px] sm:top-[96px] z-50 bg-white dark:bg-zinc-950 flex flex-col p-0 w-full h-[calc(100dvh-84px)] sm:h-[calc(100dvh-96px)] overflow-hidden shadow-2xl"
-                      : "fixed inset-x-0 bottom-0 top-[84px] sm:top-[96px] landscape:top-12 z-50 bg-white dark:bg-zinc-950 flex flex-col p-0 sm:landscape:sticky sm:landscape:inset-auto sm:landscape:top-14 sm:landscape:z-20 sm:landscape:bg-transparent sm:landscape:p-0 sm:landscape:h-[calc(100vh-60px)] md:sticky md:inset-auto md:top-[96px] lg:top-[96px] md:z-20 md:bg-transparent md:p-0 md:h-[calc(100vh-104px)] lg:h-[calc(100vh-104px)] sm:landscape:col-span-7 md:col-span-7 lg:col-span-7 xl:col-span-8 w-full transition-all shadow-2xl md:shadow-none"
+                      ? "fixed inset-0 z-50 bg-white dark:bg-zinc-950 flex flex-col p-0 w-full h-[100dvh] overflow-hidden shadow-2xl"
+                      : "fixed inset-0 z-50 md:sticky md:top-14 md:z-20 md:h-[calc(100vh-76px)] sm:landscape:col-span-7 md:col-span-7 lg:col-span-7 xl:col-span-8 w-full flex flex-col bg-white dark:bg-zinc-950 md:bg-transparent shadow-2xl md:shadow-none"
               : "hidden"
           }
         >
@@ -6526,7 +6861,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
           {selectedArticle ? (
             <div 
               id="active-article-reader" 
-              className={`w-full h-full flex flex-col justify-between overflow-hidden relative transition-all duration-300 px-2 sm:px-4 md:px-5 landscape:px-2.5 pt-1.5 sm:pt-3 pb-2 sm:pb-3 landscape:pt-1 landscape:pb-1.5 ${
+              className={`w-full h-full max-h-[100dvh] md:max-h-[calc(100vh-76px)] flex flex-col min-h-0 overflow-hidden relative transition-all duration-300 px-2 sm:px-4 md:px-5 landscape:px-2.5 pt-1.5 sm:pt-3 pb-2 sm:pb-3 landscape:pt-1 landscape:pb-1.5 ${
                 isDark ? "bg-black text-white selection:bg-zinc-850" :
                 isFun ? "bg-yellow-50 text-black shadow-xs" :
                 "bg-white text-black selection:bg-zinc-100"
@@ -6546,109 +6881,59 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 ></div>
               </div>
 
-              {/* Reader Header */}
-              <div className={`flex items-center justify-between border-b pb-1 sm:pb-1.5 mb-1.5 sm:mb-2.5 landscape:pb-0.5 landscape:mb-1 shrink-0 gap-1.5 sm:gap-2 ${isDark ? "border-zinc-800" : "border-zinc-150"}`}>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  {/* Mobile Direct Back/Close button */}
+              {/* Reader Header : 3 blocs séparés (GAUCHE = Retour, MILIEU = Outils, DROITE = Fermer PINNÉ) */}
+              <div className={`flex items-center justify-between border-b pb-2 mb-2 shrink-0 gap-1.5 sm:gap-2 ${isDark ? "border-zinc-800" : "border-zinc-150"}`}>
+                {/* 1. GAUCHE : Bouton Retour TOUJOURS ACCESSIBLE */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
-                    onClick={() => setSelectedArticle(null)}
-                    className="md:hidden sm:landscape:hidden flex items-center gap-1 px-2 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-500 dark:text-rose-300 font-bold text-xs cursor-pointer hover:bg-rose-500/25 transition-all"
-                    title="Fermer et revenir aux actualités"
+                    type="button"
+                    onClick={handleCloseArticle}
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold text-xs sm:text-sm cursor-pointer border border-zinc-300 dark:border-zinc-700 transition-all shadow-xs active:scale-95"
+                    title="Retourner à la liste des articles"
                   >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Retour</span>
+                    <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                    <span className="hidden sm:inline">← Retour aux articles ({filteredArticles.length})</span>
+                    <span className="sm:hidden">← Retour</span>
                   </button>
 
                   {/* Toggle Left List in Split Mode */}
                   <button
+                    type="button"
                     onClick={() => {
                       const next = !isListCollapsedInSplit;
                       setIsListCollapsedInSplit(next);
-                      onNotify(next ? "Plein espace de lecture activé (Liste masquée)" : "Liste de gauche réaffichée");
+                      onNotify(next ? "Plein espace de lecture activé" : "Liste de gauche réaffichée");
                     }}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold cursor-pointer transition-all ${
+                    className={`hidden md:inline-flex items-center gap-1 px-2 py-1.5 rounded-md border text-[11px] font-bold cursor-pointer transition-all ${
                       isListCollapsedInSplit
                         ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
                         : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
                           isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
                           "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
                     }`}
-                    title={isListCollapsedInSplit ? "Réafficher la colonne des articles à gauche" : "Masquer la colonne de gauche pour étendre la lecture"}
+                    title={isListCollapsedInSplit ? "Réafficher la colonne des articles à gauche" : "Masquer la colonne de gauche"}
                   >
-                    {isListCollapsedInSplit ? <PanelLeftOpen className="w-3 h-3" /> : <PanelLeftClose className="w-3 h-3" />}
-                    <span className="hidden sm:inline">{isListCollapsedInSplit ? "Afficher liste" : "Plein espace"}</span>
+                    {isListCollapsedInSplit ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+                    <span>{isListCollapsedInSplit ? "Liste" : "Plein écran"}</span>
                   </button>
-
-                  <span className={`text-[9px] uppercase font-sans font-bold tracking-wider truncate max-w-[80px] sm:max-w-none ${
-                    isDark ? "text-zinc-400" : isFun ? "text-black" : "text-zinc-500"
-                  }`}>
-                    {zenMode ? "Mode Zen" : isReaderMaximized ? "Grand Format" : "Lecteur"}
-                  </span>
                 </div>
 
-                <div className="flex items-center gap-0.5 sm:gap-1 flex-nowrap justify-end overflow-x-auto scrollbar-none py-0.5">
+                {/* 2. MILIEU : Outils Utiles (Police, Photo, Zen, Partage, PDF) */}
+                <div className="flex-1 min-w-0 flex items-center justify-center gap-1 overflow-x-auto scrollbar-none py-0.5 px-1">
                   {/* Font Resizer */}
-                  <div className={`flex items-center gap-0.5 px-1 py-0.5 rounded-md border text-[10px] font-bold ${
+                  <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[10px] font-bold shrink-0 ${
                     isDark ? "bg-zinc-900 border-zinc-800 text-zinc-100" :
                     isFun ? "bg-white border border-black text-black" :
                     "bg-zinc-50 border-zinc-200 text-zinc-800"
                   }`}>
-                    <button onClick={() => setFontScale(Math.max(0.85, fontScale - 0.15))} className="px-1 text-zinc-400 hover:text-current cursor-pointer" title="A-">A-</button>
+                    <button type="button" onClick={() => setFontScale(Math.max(0.85, fontScale - 0.15))} className="px-1 text-zinc-400 hover:text-current cursor-pointer" title="Diminuer police">A-</button>
                     <span className="text-[9px] font-mono font-bold text-zinc-500">{Math.round(fontScale * 100)}%</span>
-                    <button onClick={() => setFontScale(Math.min(1.6, fontScale + 0.15))} className="px-1 text-zinc-400 hover:text-current cursor-pointer" title="A+">A+</button>
+                    <button type="button" onClick={() => setFontScale(Math.min(1.6, fontScale + 0.15))} className="px-1 text-zinc-400 hover:text-current cursor-pointer" title="Agrandir police">A+</button>
                   </div>
 
-                  {/* Audio Speech */}
+                  {/* Mode En photo */}
                   <button
-                    onClick={() => handleVoiceRead(selectedArticle)}
-                    className={`p-1 rounded-md border cursor-pointer transition-colors ${
-                      isPlayingSpeech 
-                        ? "bg-rose-500/20 text-rose-500 border-rose-500/30 animate-pulse" 
-                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
-                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
-                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
-                    }`}
-                    title="Lire à haute voix"
-                  >
-                    {isPlayingSpeech ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-                  </button>
-
-                  {/* Zen Mode */}
-                  <button
-                    onClick={() => setZenMode(!zenMode)}
-                    className={`p-1 rounded-md border cursor-pointer transition-all ${
-                      zenMode 
-                        ? "bg-zinc-500/20 text-zinc-500 border-zinc-500/30" 
-                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
-                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
-                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
-                    }`}
-                    title="Masquer le superflu (Mode Zen)"
-                  >
-                    {zenMode ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-                  </button>
-
-                  {/* Maximize / Grand Format Full Screen Toggle */}
-                  <button
-                    onClick={() => {
-                      const next = !isReaderMaximized;
-                      setIsReaderMaximized(next);
-                      onNotify(next ? "Lecteur agrandi en Grand Format" : "Vue scindée normale rétablie");
-                    }}
-                    className={`p-1 rounded-md border cursor-pointer transition-all ${
-                      isReaderMaximized 
-                        ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30 font-bold" 
-                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
-                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
-                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
-                    }`}
-                    title={isReaderMaximized ? "Réduire en vue scindée" : "Surélever et agrandir (Grand Format)"}
-                  >
-                    {isReaderMaximized ? <Minimize className="w-3 h-3" /> : <Maximize className="w-3 h-3" />}
-                  </button>
-
-                  {/* Mode En photo Reader toggle */}
-                  <button
+                    type="button"
                     onClick={() => {
                       const next = !photoMode;
                       setPhotoMode(next);
@@ -6657,26 +6942,59 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       } catch {}
                       onNotify(next ? "📷 Mode « En photo » activé !" : "📰 Mode texte standard activé");
                     }}
-                    className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border text-[10px] sm:text-[11px] font-bold cursor-pointer transition-all ${
+                    className={`shrink-0 flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border text-[10px] sm:text-[11px] font-bold cursor-pointer transition-all ${
                       photoMode
                         ? "bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-xs"
                         : isDark
                         ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-amber-300"
                         : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-amber-300"
                     }`}
-                    title="Afficher ou masquer la photo d'illustration libre de droit"
+                    title="Afficher ou masquer la photo d'illustration"
                   >
                     <Camera className={`w-3 h-3 ${photoMode ? "text-slate-950" : "text-amber-400"}`} />
-                    <span className="hidden sm:inline">En photo</span>
+                    <span className="hidden sm:inline">Photo</span>
+                  </button>
+
+                  {/* Audio Speech */}
+                  <button
+                    type="button"
+                    onClick={() => handleVoiceRead(selectedArticle)}
+                    className={`shrink-0 p-1 sm:p-1.5 rounded-md border cursor-pointer transition-colors ${
+                      isPlayingSpeech 
+                        ? "bg-rose-500/20 text-rose-500 border-rose-500/30 animate-pulse" 
+                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
+                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
+                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
+                    }`}
+                    title="Lire à haute voix"
+                  >
+                    {isPlayingSpeech ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  </button>
+
+                  {/* Zen Mode */}
+                  <button
+                    type="button"
+                    onClick={() => setZenMode(!zenMode)}
+                    className={`shrink-0 p-1 sm:p-1.5 rounded-md border cursor-pointer transition-all ${
+                      zenMode 
+                        ? "bg-zinc-500/20 text-zinc-500 border-zinc-500/30" 
+                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
+                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
+                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
+                    }`}
+                    title="Mode Zen : Masquer le superflu"
+                  >
+                    {zenMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                   </button>
 
                   {/* Save Bookmark */}
                   <button
+                    type="button"
                     onClick={() => {
                       onToggleSave(selectedArticle.id);
                       onNotify(savedIds.has(selectedArticle.id) ? "Retiré des sauvegardés" : "Article sauvegardé ◈");
                     }}
-                    className={`p-1 rounded-md border transition-colors cursor-pointer ${
+                    className={`shrink-0 p-1 sm:p-1.5 rounded-md border transition-colors cursor-pointer ${
                       savedIds.has(selectedArticle.id)
                         ? "text-yellow-500 border-yellow-500/30 bg-yellow-500/5 animate-none"
                         : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
@@ -6685,140 +7003,63 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                     }`}
                     title={savedIds.has(selectedArticle.id) ? "Enlevé des favoris" : "Sauvegarder"}
                   >
-                    <Bookmark className="w-3 h-3 fill-current" />
+                    <Bookmark className="w-3.5 h-3.5 fill-current" />
                   </button>
 
-                  {/* Add Plant / Botanical Species */}
+                  {/* Partager */}
                   <button
-                    onClick={() => handleOpenPlantEnrichment(selectedArticle)}
-                    className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 dark:text-emerald-300 font-bold text-[10px] sm:text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98]"
-                    title="Rajouter une plante ou espèce végétale à cet article"
-                  >
-                    <Leaf className="w-3 h-3 text-emerald-400" />
-                    <span className="hidden sm:inline">Plante</span>
-                  </button>
-
-                  {/* Edit Article */}
-                  <button
-                    onClick={() => handleOpenArticleEdit(selectedArticle)}
-                    className={`p-1 rounded-md border transition-colors cursor-pointer ${
-                      isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-indigo-300" :
-                      isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
-                      "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-indigo-600"
-                    }`}
-                    title="Modifier et personnaliser cet article"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                  </button>
-
-                  {/* Clarify & Specify Article */}
-                  <button
-                    onClick={() => handleClarifyAndSpecifyArticle(selectedArticle)}
-                    disabled={isClarifyingArticle}
-                    className={`flex items-center gap-1 px-1.5 py-1 rounded-md border text-xs font-bold cursor-pointer transition-all ${
-                      detectArticleVagueness(selectedArticle).isVague
-                        ? "bg-amber-500/20 text-amber-500 border-amber-500/40 hover:bg-amber-500/30 font-extrabold"
-                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-amber-300" :
-                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
-                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-amber-600"
-                    }`}
-                    title="Clarifier les acteurs réels et nommer les entités avec précision"
-                  >
-                    {isClarifyingArticle ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3 text-amber-400" />}
-                    <span className="hidden sm:inline">Clarifier</span>
-                  </button>
-
-                  {/* 4. Lecture Bionique Toggle Button */}
-                  <button
-                    onClick={() => {
-                      const next = !isBionicReading;
-                      setIsBionicReading(next);
-                      try {
-                        localStorage.setItem("infoperso_bionic_reading", String(next));
-                      } catch {}
-                      onNotify(next ? "⚡ Lecture Bionique activée (fixation oculaire accélérée)" : "Lecture standard rétablie");
-                    }}
-                    className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border text-[11px] font-bold cursor-pointer transition-all ${
-                      isBionicReading
-                        ? "bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-xs"
-                        : isDark
-                        ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-amber-300"
-                        : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-amber-300"
-                    }`}
-                    title="Lecture Bionique : guide le regard sur les premières lettres pour accélérer la lecture"
-                  >
-                    <Zap className={`w-3 h-3 ${isBionicReading ? "text-slate-950 fill-current" : "text-amber-400"}`} />
-                    <span>Bionique</span>
-                  </button>
-
-                  {/* 3. Nuances & Biais Button */}
-                  <button
-                    onClick={() => setShowNuanceModal(true)}
-                    className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-bold text-[11px] transition-all cursor-pointer shadow-xs"
-                    title="Dossier de presse croisé : analyse des nuances, perspectives et controverses"
-                  >
-                    <Scale className="w-3 h-3 text-cyan-400" />
-                    <span className="hidden sm:inline">Nuances</span>
-                  </button>
-
-                  {/* Share Article (Toujours visible en haut) */}
-                  <button
+                    type="button"
                     onClick={() => handleShareArticle(selectedArticle)}
-                    className="compact-action-btn flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold transition-all cursor-pointer bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 text-blue-400 hover:text-blue-300"
+                    className="shrink-0 compact-action-btn flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold transition-all cursor-pointer bg-blue-600/15 hover:bg-blue-600/25 border-blue-500/40 text-blue-400 hover:text-blue-300"
                     title="Partager cet article"
                   >
                     <Share2 className="w-3 h-3 text-blue-400" />
-                    <span className="hidden xs:inline">Partager</span>
+                    <span className="hidden md:inline">Partager</span>
                   </button>
 
-                  {/* Export PDF avec Photo (Toujours visible en haut) */}
+                  {/* Export PDF avec Photo */}
                   <button
+                    type="button"
                     onClick={() => handleExportArticle(selectedArticle, "pdf")}
                     disabled={isExportingPdf}
-                    className="compact-action-btn flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold transition-all cursor-pointer bg-rose-600/20 hover:bg-rose-600/30 border-rose-500/40 text-rose-300 hover:text-rose-200 disabled:opacity-50"
-                    title="Créer un document PDF avec illustration photo de cet article"
+                    className="shrink-0 compact-action-btn flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold transition-all cursor-pointer bg-rose-600/20 hover:bg-rose-600/30 border-rose-500/40 text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                    title="Créer un document PDF avec illustration photo"
                   >
                     {isExportingPdf ? (
                       <Loader2 className="w-3 h-3 text-rose-400 animate-spin" />
                     ) : (
                       <FileText className="w-3 h-3 text-rose-400" />
                     )}
-                    <span className="hidden xs:inline">PDF Photo</span>
+                    <span className="hidden md:inline">PDF</span>
                   </button>
+                </div>
 
-                  {/* Export Article HTML */}
+                {/* 3. DROITE : Bouton Fermer (Croix Rouge) DÉDIÉ ET TOUJOURS PINNÉ À DROITE */}
+                <div className="shrink-0 flex items-center">
                   <button
-                    onClick={() => handleExportArticle(selectedArticle, "html", isDark ? "dark" : "light")}
-                    className="compact-action-btn flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-bold transition-all cursor-pointer bg-emerald-600/15 hover:bg-emerald-600/25 border-emerald-500/40 text-emerald-400 hover:text-emerald-300"
-                    title="Exporter cet article au format HTML autonome"
-                  >
-                    <Download className="w-3 h-3 text-emerald-400" />
-                    <span className="hidden xs:inline">HTML</span>
-                  </button>
-
-                  {/* Dedicated Close Button in Top-Right - Croix rouge très visible */}
-                  <button
-                    onClick={() => setSelectedArticle(null)}
-                    className={`shrink-0 ml-1 px-2.5 sm:px-3 py-1.5 rounded-lg border-2 flex items-center gap-1.5 font-black text-xs transition-all cursor-pointer shadow-md active:scale-95 z-30 ${
-                      isDark 
-                        ? "bg-rose-600 hover:bg-rose-500 border-rose-400 text-white shadow-rose-950/40" 
-                        : isFun 
-                          ? "bg-rose-500 border-2 border-black text-white hover:bg-rose-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" 
-                          : "bg-rose-600 hover:bg-rose-700 border-rose-500 text-white shadow-rose-200"
-                    }`}
-                    title="Fermer l'article et revenir aux actualités (Croix rouge)"
+                    type="button"
+                    onClick={handleCloseArticle}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-black text-xs sm:text-sm cursor-pointer shadow-md transition-all z-20"
+                    title="Fermer la fiche article et revenir au flux d'actualités"
                     aria-label="Fermer l'article"
                   >
-                    <X className="w-4 h-4 text-white stroke-[3]" />
-                    <span className="font-extrabold text-xs">Fermer</span>
+                    <X className="w-4 h-4 stroke-[3]" />
+                    <span>Fermer</span>
                   </button>
                 </div>
               </div>
 
-              {/* Reader body with attached readerBodyRef */}
+              {/* Reader body with attached readerBodyRef (Défilement fluide natif tactile & molette) */}
               <div 
                 ref={readerBodyRef} 
-                className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 landscape:space-y-2 pr-1 scrollbar pb-6 landscape:pb-4" 
+                tabIndex={0}
+                role="region"
+                aria-label="Contenu de l'article"
+                className="flex-1 min-h-0 overflow-y-auto space-y-4 px-2 sm:px-4 py-2 scrollbar pb-32 overscroll-contain outline-none focus:outline-none" 
+                style={{ 
+                  WebkitOverflowScrolling: "touch",
+                  overflowY: "auto"
+                }}
                 onScroll={handleReaderScroll}
               >
                 {/* Clean Metadata Header Bar */}
@@ -6887,415 +7128,458 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                   </h3>
                 </div>
 
-                {/* Photo d'illustration libre de droit (Mode "En photo") */}
-                {photoMode && (
-                  <div className="relative w-full rounded-xl overflow-hidden shadow-md my-2.5 sm:my-3 bg-slate-900 border border-white/10 group">
-                    <img
-                      src={currentReaderPhoto || getArticleIllustration(selectedArticle)}
-                      alt={selectedArticle.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-40 sm:h-48 md:h-52 max-h-[220px] object-cover transition-transform duration-700 group-hover:scale-[1.02]"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = getFallbackCategoryIllustration(selectedArticle.category);
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
-                    <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-xs text-white/95 flex-wrap gap-2">
-                      <div className="flex items-center gap-1.5 font-medium truncate">
-                        <Camera className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="truncate">Photo d'illustration libre de droit (Unsplash / Wikimedia CC)</span>
+                    {/* Chapeau éditorial fluide directement sous le titre principal (Entrée immédiate en lecture) */}
+                    {selectedArticle.summary && (
+                      <div className={`my-2 px-3.5 py-2.5 rounded-xl border-l-3 transition-all ${
+                        isDark
+                          ? "bg-indigo-950/40 border-indigo-500 text-indigo-100 text-sm sm:text-[15px] font-medium leading-relaxed"
+                          : "bg-indigo-50/70 border-indigo-600 text-indigo-950 text-sm sm:text-[15px] font-medium leading-relaxed"
+                      }`}>
+                        <p>{fixTemporalConsistency(selectedArticle.summary)}</p>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={async () => {
-                            onNotify("🔍 Recherche d'une photo d'entité sur Wikimedia Commons...");
-                            const liveImg = await fetchLiveWikimediaPhoto(selectedArticle.title, selectedArticle.category);
-                            if (liveImg) {
-                              setCurrentReaderPhoto(liveImg);
-                              setArticles(prev => prev.map(a => a.id === selectedArticle.id ? { ...a, imageUrl: liveImg } : a));
-                              setSelectedArticle(prev => prev ? { ...prev, imageUrl: liveImg } : null);
-                              onNotify("✅ Photo d'archive libre Wikimedia associée !");
-                            } else {
-                              onNotify("📷 Photo thématique haute définition déjà optimisée.");
-                            }
-                          }}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-xs transition-colors cursor-pointer flex items-center gap-1"
-                          title="Rechercher une photo réelle d'archive sur Wikimedia Commons"
-                        >
-                          <Sparkles className="w-2.5 h-2.5 text-amber-300" />
-                          <span>Photo d'entité</span>
-                        </button>
-                        <button
-                          onClick={() => handleExportArticle(selectedArticle, "pdf")}
-                          disabled={isExportingPdf}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white backdrop-blur-xs transition-all cursor-pointer flex items-center gap-1 shadow-xs active:scale-95 disabled:opacity-50"
-                          title="Créer et télécharger un document PDF avec cette illustration photo"
-                        >
-                          {isExportingPdf ? (
-                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                          ) : (
-                            <FileText className="w-2.5 h-2.5" />
-                          )}
-                          <span>PDF avec photo</span>
-                        </button>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs border border-white/20">
-                          0 Mo Disque • Libre & Gratuit
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    )}
 
-                {/* Vagueness / Imprecision Warning Banner with 1-Click IA Clarify & Name */}
-                {(() => {
-                  const vagueness = detectArticleVagueness(selectedArticle);
-                  if (!vagueness.isVague) return null;
-                  return (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
-                      <div className="flex items-start gap-2.5">
-                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="text-xs font-bold flex items-center gap-1.5">
-                            <span>Article imprécis ou entité non nommée</span>
-                            <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-mono">À préciser</span>
+                    {/* Photo d'illustration libre de droit en bandeau compact épuré (hauteur maximale strictement contenue à 140-160 px) */}
+                    {photoMode && (
+                      <div className="relative w-full rounded-xl overflow-hidden shadow-xs my-2.5 bg-slate-900 border border-white/10 group h-28 sm:h-36 max-h-[140px] sm:max-h-[160px]">
+                        <img
+                          src={currentReaderPhoto || getArticleIllustration(selectedArticle)}
+                          alt={selectedArticle.title}
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full max-h-[140px] sm:max-h-[160px] object-cover transition-transform duration-700 group-hover:scale-[1.01]"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = getFallbackCategoryIllustration(selectedArticle.category);
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                        <div className="absolute bottom-1.5 left-2.5 right-2.5 flex items-center justify-between text-[11px] text-white/95 flex-wrap gap-1.5">
+                          <div className="flex items-center gap-1 font-medium truncate">
+                            <Camera className="w-3 h-3 text-amber-400 shrink-0" />
+                            <span className="truncate text-[10px]">Photo libre (Unsplash / Wikimedia)</span>
                           </div>
-                          <p className="text-xs text-amber-800/90 dark:text-amber-300/90 mt-0.5">
-                            {vagueness.reason || "Certains acteurs, entreprises ou chiffres clés ne sont pas nommément identifiés."}
-                          </p>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleExportArticle(selectedArticle, "pdf")}
+                              disabled={isExportingPdf}
+                              className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white backdrop-blur-xs transition-all cursor-pointer flex items-center gap-1"
+                              title="PDF avec photo"
+                            >
+                              <FileText className="w-2.5 h-2.5" />
+                              <span>PDF Photo</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleClarifyAndSpecifyArticle(selectedArticle)}
-                        disabled={isClarifyingArticle}
-                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 active:scale-95 text-zinc-950 font-extrabold text-xs cursor-pointer shadow transition-all disabled:opacity-50"
-                        title="Rechercher les véritables entités et nommer l'article avec précision"
-                      >
-                        {isClarifyingArticle ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>Clarification en cours...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="w-3.5 h-3.5" />
-                            <span>Clarifier & Nommer avec l'IA</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  );
-                })()}
+                    )}
 
-                {/* Key Quotes block */}
-                {extractedQuotes.length > 0 && (
-                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 space-y-2">
-                    <h4 className="text-[10px] uppercase font-sans font-extrabold tracking-wider text-amber-300">Citations clés extraites :</h4>
-                    <div className="space-y-1 text-xs text-slate-300 italic font-serif">
-                      {extractedQuotes.map((q, i) => <p key={i}>{q}</p>)}
-                    </div>
-                  </div>
-                )}
+                    {/* Frise chronologique contextuelle : Mini-bloc rétrospectif « Repères temporels » (situer l'événement dans le temps long) */}
+                    {(() => {
+                      const reperes = getArticleReperesTemporels(selectedArticle);
+                      if (!reperes || reperes.length === 0) return null;
 
-                {/* ARTICLE EN 2 PARTIES : PARTIE 1 (SYNTHÈSE CONDENSÉE) ET PARTIE 2 (ANALYSE APPROFONDIE 3X PLUS DÉTAILLÉE) */}
-                <div className="space-y-6 pt-3 border-t border-slate-700/20 transition-all duration-300 relative">
-
-                  {/* PARTIE 1 : SYNTHÈSE CONDENSÉE */}
-                  <div className={`p-4 sm:p-5 rounded-2xl border space-y-3 transition-all ${
-                    isDark ? "bg-zinc-900 border-zinc-800 text-white" :
-                    isFun ? "bg-yellow-200 border-2 border-black text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]" :
-                    "bg-zinc-100 border-zinc-300 text-black shadow-xs"
-                  }`}>
-                    <div className={`flex items-center justify-between gap-2 border-b pb-2 ${isDark ? "border-zinc-800" : "border-zinc-300"}`}>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${
-                        isDark ? "bg-zinc-800 text-amber-300 border-zinc-700" : "bg-white text-zinc-950 border-zinc-300"
-                      }`}>
-                        <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        Partie 1 : Synthèse condensée (Flash 15 sec)
-                      </span>
-                      <span className={`text-[11px] font-mono font-bold ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-                        L'essentiel en bref
-                      </span>
-                    </div>
-                    <p className={`text-sm sm:text-base font-semibold leading-relaxed italic ${isDark ? "text-white" : "text-black"}`}>
-                      {fixTemporalConsistency(selectedArticle.summary) || "Synthèse factuelle et faits clés du jour."}
-                    </p>
-                  </div>
-
-                  {/* SECTION ENRICHIE 1 : CHIFFRES & INDICATEURS CLÉS (Format ultra-compact) */}
-                  {selectedArticle.keyFigures && selectedArticle.keyFigures.length > 0 && (
-                    <div
-                      className={`px-2.5 py-1.5 rounded-lg border flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs transition-all ${
-                        isDark
-                          ? "bg-zinc-900/60 border-zinc-800 text-zinc-300"
-                          : "bg-zinc-100/90 border-zinc-200 text-zinc-800"
-                      }`}
-                    >
-                      <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400 shrink-0">
-                        <BarChart3 className="w-3 h-3 opacity-80" />
-                        <span>Chiffres clés :</span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                        {selectedArticle.keyFigures.map((fig, fIdx) => (
-                          <div
-                            key={fIdx}
-                            className="inline-flex items-baseline gap-1"
-                            title={fig.detail ? `${fig.label} : ${fig.value} — ${fig.detail}` : `${fig.label} : ${fig.value}`}
-                          >
-                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
-                              {fig.label} :
+                      return (
+                        <div className={`my-2.5 p-3 rounded-xl border transition-all ${
+                          isDark
+                            ? "bg-zinc-900/60 border-zinc-800 text-zinc-300"
+                            : "bg-amber-50/60 border-amber-200/80 text-amber-950"
+                        }`}>
+                          <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-current/15">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="text-xs font-bold uppercase tracking-wider">
+                                Repères temporels • Situer l'événement dans le temps long
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono opacity-70">
+                              {reperes.length} jalons majeurs
                             </span>
-                            <span className="font-mono font-bold text-xs text-zinc-950 dark:text-white">
-                              {fig.value}
-                            </span>
-                            {fIdx < selectedArticle.keyFigures.length - 1 && (
-                              <span className="text-zinc-300 dark:text-zinc-700 select-none ml-1">·</span>
-                            )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SECTION ENRICHIE 2 : POINTS CLÉS & À RETENIR (Compact) */}
-                  {selectedArticle.keyTakeaways && selectedArticle.keyTakeaways.length > 0 && (
-                    <div className={`p-2.5 sm:p-3 rounded-xl border space-y-1.5 ${
-                      isDark ? "bg-indigo-950/20 border-indigo-800/40 text-indigo-100" : "bg-indigo-50/70 border-indigo-200 text-indigo-950 shadow-2xs"
-                    }`}>
-                      <div className="flex items-center justify-between border-b pb-1 border-indigo-500/20">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                          <span>À Retenir • Synthèse</span>
-                        </span>
-                        <span className="text-[9px] font-mono opacity-70">
-                          {selectedArticle.keyTakeaways.length} points
-                        </span>
-                      </div>
-                      <ul className="space-y-1 pl-0.5">
-                        {selectedArticle.keyTakeaways.map((point, pIdx) => (
-                          <li key={pIdx} className="flex items-start gap-1.5 text-xs leading-snug">
-                            <span className="text-indigo-400 font-bold shrink-0 mt-0.5 text-[10px]">✓</span>
-                            <span>{point}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* SECTION ENRICHIE 3 : ANALYSE STRATÉGIQUE (Compact) */}
-                  {selectedArticle.strategicAnalysis && (
-                    <div className={`p-2.5 sm:p-3 rounded-xl border space-y-2 ${
-                      isDark ? "bg-zinc-900/80 border-zinc-800 text-slate-200" : "bg-slate-50/90 border-slate-200 text-slate-900 shadow-2xs"
-                    }`}>
-                      <div className="flex items-center justify-between border-b pb-1 border-slate-700/30">
-                        <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 text-cyan-500 dark:text-cyan-400">
-                          <Target className="w-3 h-3 text-cyan-400 shrink-0" />
-                          <span>Analyse Stratégique</span>
-                        </span>
-                        <span className="text-[9px] font-mono opacity-60">InfoPerso</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                        {selectedArticle.strategicAnalysis.actorsInvolved && selectedArticle.strategicAnalysis.actorsInvolved.length > 0 && (
-                          <div className="space-y-0.5">
-                            <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Acteurs :</span>
-                            <div className="flex flex-wrap gap-1 mt-0.5">
-                              {selectedArticle.strategicAnalysis.actorsInvolved.map((actor, aIdx) => (
-                                <span key={aIdx} className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold border ${
-                                  isDark ? "bg-slate-800 text-slate-200 border-slate-700" : "bg-white text-slate-800 border-slate-300"
-                                }`}>
-                                  {actor}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {reperes.map((rep, rIdx) => (
+                              <div key={rIdx} className="flex flex-col relative pl-2.5 border-l-2 border-amber-500/40 dark:border-amber-400/40">
+                                <span className="font-mono font-bold text-xs text-amber-700 dark:text-amber-300">
+                                  {rep.date}
                                 </span>
-                              ))}
-                            </div>
+                                <span className="font-semibold text-xs leading-snug mt-0.5">
+                                  {rep.titre}
+                                </span>
+                                <p className="text-[11px] opacity-80 leading-snug mt-1">
+                                  {rep.description}
+                                </p>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                        {selectedArticle.strategicAnalysis.marketImpact && (
-                          <div className="space-y-0.5">
-                            <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Impact Marché :</span>
-                            <p className="leading-snug opacity-90">{selectedArticle.strategicAnalysis.marketImpact}</p>
-                          </div>
-                        )}
-                        {selectedArticle.strategicAnalysis.privacyCompliance && (
-                          <div className="space-y-0.5">
-                            <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Souveraineté :</span>
-                            <p className="leading-snug opacity-90">{selectedArticle.strategicAnalysis.privacyCompliance}</p>
-                          </div>
-                        )}
-                        {selectedArticle.strategicAnalysis.nextMilestone && (
-                          <div className="space-y-0.5">
-                            <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Prochaine Étape :</span>
-                            <p className="leading-snug font-semibold text-emerald-500 dark:text-emerald-300">{selectedArticle.strategicAnalysis.nextMilestone}</p>
-                          </div>
-                        )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* CORPS DE L'ARTICLE : ENTRÉE IMMÉDIATE EN LECTURE (Zéro texte d'intro générique ni séparateur) */}
+                    <div className="pt-1">
+                      <div 
+                        className="font-sans leading-relaxed text-sm sm:text-base space-y-4 transition-all duration-300 relative"
+                        style={{ fontSize: `${fontScale * 110}%` }}
+                      >
+                        {(() => {
+                          const cleanContent = cleanArticleContent(selectedArticle.content, selectedArticle.title, selectedArticle.summary);
+                          if (isBionicReading) {
+                            return (
+                              <div className="space-y-4">
+                                <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs font-bold ${
+                                  isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-900"
+                                }`}>
+                                  <div className="flex items-center gap-1.5">
+                                    <Zap className="w-3.5 h-3.5 fill-current text-amber-400" />
+                                    <span>Lecture Bionique active : fixation oculaire accélérée</span>
+                                  </div>
+                                  <span className="text-[11px] font-mono opacity-80 shrink-0">
+                                    ⏱️ ~{calculateReadingTimeMinutes(cleanContent).minutes} min restantes
+                                  </span>
+                                </div>
+                                {formatBionicText(cleanContent)}
+                              </div>
+                            );
+                          }
+                          return cleanContent.split("\n\n").map((p, idx) => (
+                            <React.Fragment key={idx}>
+                              {renderParagraph(p)}
+                            </React.Fragment>
+                          ));
+                        })()}
                       </div>
                     </div>
-                  )}
 
-                  {/* PIPELINE ÉDITORIAL COMPLET (« Trier l'information avant de la subir ») */}
-                  {(selectedArticle.faits_verifies || selectedArticle.debat_nuance || selectedArticle.source_mention) && (
-                    <div className={`p-3.5 sm:p-4 rounded-xl border space-y-3 transition-all ${
-                      isDark ? "bg-slate-900/90 border-indigo-900/50 text-slate-200" : "bg-white border-indigo-200 text-slate-900 shadow-xs"
-                    }`}>
-                      {/* Header Pipeline */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 border-indigo-500/20">
-                        <div className="flex items-center gap-2">
-                          <span className="p-1 rounded-md bg-indigo-600 text-white shadow-xs">
+                    {/* OUTILS D'ANALYSE CRITIQUE & CHIFFRES CLÉS (Format repliable épuré en bas d'article) */}
+                    <div className="mt-4 pt-3 border-t border-slate-700/20">
+                        <button
+                          onClick={() => setIsAnalysisDossierExpanded(!isAnalysisDossierExpanded)}
+                          className={`w-full p-2.5 sm:p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
+                            isAnalysisDossierExpanded
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-xs"
+                              : isDark
+                              ? "bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border-zinc-800"
+                              : "bg-indigo-50/70 hover:bg-indigo-100/70 text-indigo-950 border-indigo-200 shadow-2xs"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
                             <Radio className="w-3.5 h-3.5" />
-                          </span>
-                          <div>
-                            <div className="text-xs font-black tracking-wide uppercase text-indigo-500 dark:text-indigo-400">
-                              Intelligence Éditoriale • Trier l'information avant de la subir
-                            </div>
-                            {selectedArticle.source_mention && (
-                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
-                                Source & attribution : <span className="font-semibold text-zinc-700 dark:text-zinc-300">{selectedArticle.source_mention}</span>
+                            <span>Dossier d'analyse critique, Chiffres clés & Débat de nuance</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono opacity-75">
+                              {isAnalysisDossierExpanded ? "Masquer le dossier" : "Déplier l'analyse"}
+                            </span>
+                            {isAnalysisDossierExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </div>
+                        </button>
+
+                        {isAnalysisDossierExpanded && (
+                          <div className="mt-3 space-y-3">
+                            {/* SECTION ENRICHIE 1 : CHIFFRES & INDICATEURS CLÉS */}
+                            {selectedArticle.keyFigures && selectedArticle.keyFigures.length > 0 && (
+                              <div
+                                className={`px-2.5 py-1.5 rounded-lg border flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs transition-all ${
+                                  isDark
+                                    ? "bg-zinc-900/60 border-zinc-800 text-zinc-300"
+                                    : "bg-zinc-100/90 border-zinc-200 text-zinc-800"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400 shrink-0">
+                                  <BarChart3 className="w-3 h-3 opacity-80" />
+                                  <span>Chiffres clés :</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                                  {selectedArticle.keyFigures.map((fig, fIdx) => (
+                                    <div
+                                      key={fIdx}
+                                      className="inline-flex items-baseline gap-1"
+                                      title={fig.detail ? `${fig.label} : ${fig.value} — ${fig.detail}` : `${fig.label} : ${fig.value}`}
+                                    >
+                                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                                        {fig.label} :
+                                      </span>
+                                      <span className="font-mono font-bold text-xs text-zinc-950 dark:text-white">
+                                        {fig.value}
+                                      </span>
+                                      {fIdx < selectedArticle.keyFigures.length - 1 && (
+                                        <span className="text-zinc-300 dark:text-zinc-700 select-none ml-1">·</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* SECTION ENRICHIE 2 : POINTS CLÉS & À RETENIR */}
+                            {selectedArticle.keyTakeaways && selectedArticle.keyTakeaways.length > 0 && (
+                              <div className={`p-2.5 sm:p-3 rounded-xl border space-y-1.5 ${
+                                isDark ? "bg-indigo-950/20 border-indigo-800/40 text-indigo-100" : "bg-indigo-50/70 border-indigo-200 text-indigo-950 shadow-2xs"
+                              }`}>
+                                <div className="flex items-center justify-between border-b pb-1 border-indigo-500/20">
+                                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                    <span>À Retenir • Synthèse</span>
+                                  </span>
+                                  <span className="text-[9px] font-mono opacity-70">
+                                    {selectedArticle.keyTakeaways.length} points
+                                  </span>
+                                </div>
+                                <ul className="space-y-1 pl-0.5">
+                                  {selectedArticle.keyTakeaways.map((point, pIdx) => (
+                                    <li key={pIdx} className="flex items-start gap-1.5 text-xs leading-snug">
+                                      <span className="text-indigo-400 font-bold shrink-0 mt-0.5 text-[10px]">✓</span>
+                                      <span>{point}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* SECTION ENRICHIE 3 : ANALYSE STRATÉGIQUE */}
+                            {selectedArticle.strategicAnalysis && (
+                              <div className={`p-2.5 sm:p-3 rounded-xl border space-y-2 ${
+                                isDark ? "bg-zinc-900/80 border-zinc-800 text-slate-200" : "bg-slate-50/90 border-slate-200 text-slate-900 shadow-2xs"
+                              }`}>
+                                <div className="flex items-center justify-between border-b pb-1 border-slate-700/30">
+                                  <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 text-cyan-500 dark:text-cyan-400">
+                                    <Target className="w-3 h-3 text-cyan-400 shrink-0" />
+                                    <span>Analyse Stratégique</span>
+                                  </span>
+                                  <span className="text-[9px] font-mono opacity-60">InfoPerso</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                  {selectedArticle.strategicAnalysis.actorsInvolved && selectedArticle.strategicAnalysis.actorsInvolved.length > 0 && (
+                                    <div className="space-y-0.5">
+                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Acteurs :</span>
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {selectedArticle.strategicAnalysis.actorsInvolved.map((actor, aIdx) => (
+                                          <span key={aIdx} className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold border ${
+                                            isDark ? "bg-slate-800 text-slate-200 border-slate-700" : "bg-white text-slate-800 border-slate-300"
+                                          }`}>
+                                            {actor}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {selectedArticle.strategicAnalysis.marketImpact && (
+                                    <div className="space-y-0.5">
+                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Impact Marché :</span>
+                                      <p className="leading-snug opacity-90">{selectedArticle.strategicAnalysis.marketImpact}</p>
+                                    </div>
+                                  )}
+                                  {selectedArticle.strategicAnalysis.privacyCompliance && (
+                                    <div className="space-y-0.5">
+                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Souveraineté :</span>
+                                      <p className="leading-snug opacity-90">{selectedArticle.strategicAnalysis.privacyCompliance}</p>
+                                    </div>
+                                  )}
+                                  {selectedArticle.strategicAnalysis.nextMilestone && (
+                                    <div className="space-y-0.5">
+                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Prochaine Étape :</span>
+                                      <p className="leading-snug font-semibold text-emerald-500 dark:text-emerald-300">{selectedArticle.strategicAnalysis.nextMilestone}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* PIPELINE ÉDITORIAL COMPLET */}
+                            {(selectedArticle.faits_verifies || selectedArticle.debat_nuance || selectedArticle.source_mention) && (
+                              <div className={`p-3.5 sm:p-4 rounded-xl border space-y-3 transition-all ${
+                                isDark ? "bg-slate-900/90 border-indigo-900/50 text-slate-200" : "bg-white border-indigo-200 text-slate-900 shadow-xs"
+                              }`}>
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 border-indigo-500/20">
+                                  <div className="flex items-center gap-2">
+                                    <span className="p-1 rounded-md bg-indigo-600 text-white shadow-xs">
+                                      <Radio className="w-3.5 h-3.5" />
+                                    </span>
+                                    <div>
+                                      <div className="text-xs font-black tracking-wide uppercase text-indigo-500 dark:text-indigo-400">
+                                        Intelligence Éditoriale • Trier l'information avant de la subir
+                                      </div>
+                                      {selectedArticle.source_mention && (
+                                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                                          Source & attribution : <span className="font-semibold text-zinc-700 dark:text-zinc-300">{selectedArticle.source_mention}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {typeof selectedArticle.score_bruit === "number" && (
+                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                                      selectedArticle.score_bruit <= 2
+                                        ? isDark ? "bg-emerald-950/40 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                        : selectedArticle.score_bruit === 3
+                                        ? isDark ? "bg-amber-950/40 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-300"
+                                        : isDark ? "bg-rose-950/40 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-300"
+                                    }`}>
+                                      <span>Indice de bruit : {selectedArticle.score_bruit}/5</span>
+                                      <span className="opacity-75 font-normal text-[10px]">
+                                        {selectedArticle.score_bruit <= 2 ? "• Information de fond" : selectedArticle.score_bruit === 3 ? "• Bruit modéré" : "• Emballement éphémère"}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {selectedArticle.faits_verifies && selectedArticle.faits_verifies.length > 0 && (
+                                  <div className="space-y-1.5">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Faits Vérifiés & Épurés (Réécriture intégrale)</span>
+                                    </div>
+                                    <ul className="space-y-1">
+                                      {selectedArticle.faits_verifies.map((fait, fIdx) => (
+                                        <li key={fIdx} className="text-xs leading-relaxed flex items-start gap-2 pl-1">
+                                          <span className="text-emerald-500 font-bold mt-0.5">•</span>
+                                          <span>{fait}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {selectedArticle.debat_nuance && (
+                                  <div className={`p-2.5 rounded-lg border space-y-2 text-xs ${
+                                    isDark ? "bg-zinc-800/60 border-zinc-700/60" : "bg-slate-50 border-slate-200"
+                                  }`}>
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5">
+                                      <Scale className="w-3.5 h-3.5" />
+                                      <span>Débat Contradictoire & Angles Morts</span>
+                                    </div>
+                                    {selectedArticle.debat_nuance.dominante && (
+                                      <div>
+                                        <span className="font-bold text-[10px] uppercase opacity-70">Thèse dominante : </span>
+                                        <span className="italic">{selectedArticle.debat_nuance.dominante}</span>
+                                      </div>
+                                    )}
+                                    {selectedArticle.debat_nuance.angles_morts && selectedArticle.debat_nuance.angles_morts.length > 0 && (
+                                      <div className="space-y-1">
+                                        <span className="font-bold text-[10px] uppercase opacity-70">Angles morts & données omises :</span>
+                                        <ul className="space-y-0.5 pl-1">
+                                          {selectedArticle.debat_nuance.angles_morts.map((am, amIdx) => (
+                                            <li key={amIdx} className="flex items-start gap-1.5 leading-snug">
+                                              <span className="text-amber-500 font-bold shrink-0 mt-0.5">⚠️</span>
+                                              <span>{am}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {selectedArticle.debat_nuance.question_discernement && (
+                                      <div className={`p-2 rounded border text-xs font-medium ${
+                                        isDark ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-200" : "bg-indigo-50/80 border-indigo-200 text-indigo-900"
+                                      }`}>
+                                        <span className="font-bold block text-[10px] uppercase tracking-wider text-indigo-400">Question de discernement :</span>
+                                        « {selectedArticle.debat_nuance.question_discernement} »
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
-                        </div>
-
-                        {/* Badge Indice de Bruit Médiatique */}
-                        {typeof selectedArticle.score_bruit === "number" && (
-                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                            selectedArticle.score_bruit <= 2
-                              ? isDark ? "bg-emerald-950/40 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-300"
-                              : selectedArticle.score_bruit === 3
-                              ? isDark ? "bg-amber-950/40 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-300"
-                              : isDark ? "bg-rose-950/40 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-300"
-                          }`}>
-                            <span>Indice de bruit : {selectedArticle.score_bruit}/5</span>
-                            <span className="opacity-75 font-normal text-[10px]">
-                              {selectedArticle.score_bruit <= 2 ? "• Information de fond" : selectedArticle.score_bruit === 3 ? "• Bruit modéré" : "• Emballement éphémère"}
-                            </span>
-                          </div>
                         )}
                       </div>
 
-                      {/* 1. Faits Vérifiés */}
-                      {selectedArticle.faits_verifies && selectedArticle.faits_verifies.length > 0 && (
-                        <div className="space-y-1.5">
-                          <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Faits Vérifiés & Épurés (Réécriture intégrale)</span>
+                {/* LECTEUR VIDÉO YOUTUBE SOUVERAIN (Placé en bas d'article pour ne jamais entraver la lecture) */}
+                {(() => {
+                  const detectedYtId =
+                    selectedArticle.youtubeId ||
+                    (selectedArticle.youtubeUrl ? extractYouTubeVideoId(selectedArticle.youtubeUrl) : null) ||
+                    extractYouTubeVideoId(selectedArticle.content || "") ||
+                    extractYouTubeVideoId(selectedArticle.summary || "") ||
+                    (selectedArticle.url ? extractYouTubeVideoId(selectedArticle.url) : null) ||
+                    deepDiveHistory.map(h => extractYouTubeVideoId(h.question) || extractYouTubeVideoId(h.answer)).find(Boolean);
+
+                  if (!detectedYtId) return null;
+
+                  const videoPoints = getVideoKeyPoints(selectedArticle);
+
+                  return (
+                    <div className="rounded-xl overflow-hidden border border-zinc-800 bg-black my-4 shadow-md">
+                      <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/95 border-b border-zinc-800 text-xs font-bold text-white">
+                        <div className="flex items-center gap-1.5 text-rose-400">
+                          <Youtube className="w-4 h-4 fill-current" />
+                          <span className="text-[11px] sm:text-xs font-extrabold">Vidéo de décryptage & analyse (Souverain sans pistage)</span>
+                        </div>
+                        <a
+                          href={`https://www.youtube.com/watch?v=${detectedYtId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 bg-zinc-800/80 px-2 py-0.5 rounded border border-zinc-700"
+                        >
+                          <span>YouTube ↗</span>
+                        </a>
+                      </div>
+
+                      {/* On-Demand Embed to prevent focus stealing, auto-scrolling, or trapping scroll events */}
+                      {isPlayingEmbeddedVideo ? (
+                        <div className="relative aspect-video w-full bg-black">
+                          <iframe
+                            src={getYouTubeEmbedUrl(detectedYtId)}
+                            title="Vidéo de décryptage YouTube"
+                            className="absolute inset-0 w-full h-full border-0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <div 
+                          onClick={() => setIsPlayingEmbeddedVideo(true)}
+                          className="relative aspect-video w-full bg-zinc-950 flex flex-col items-center justify-center p-4 text-center group cursor-pointer border-y border-zinc-800"
+                        >
+                          <img 
+                            src={`https://img.youtube.com/vi/${detectedYtId}/hqdefault.jpg`}
+                            alt="Aperçu vidéo"
+                            className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors" />
+                          <div className="relative z-10 flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                              <Play className="w-5 h-5 fill-white text-white ml-0.5" />
+                            </div>
+                            <span className="text-xs font-bold text-white bg-black/80 px-3 py-1 rounded-full border border-white/20">
+                              Lancer la vidéo de décryptage (Click-to-play)
+                            </span>
                           </div>
-                          <ul className="space-y-1">
-                            {selectedArticle.faits_verifies.map((fait, fIdx) => (
-                              <li key={fIdx} className="text-xs leading-relaxed flex items-start gap-2 pl-1">
-                                <span className="text-emerald-500 font-bold mt-0.5">•</span>
-                                <span>{fait}</span>
+                        </div>
+                      )}
+
+                      {/* Encart repliable « Points clés de la vidéo » (3 puces) */}
+                      <div className="bg-zinc-900/95 border-t border-zinc-800 text-zinc-200">
+                        <button
+                          onClick={() => setIsVideoPointsExpanded(!isVideoPointsExpanded)}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold hover:bg-zinc-800/60 transition-colors cursor-pointer text-left"
+                        >
+                          <div className="flex items-center gap-1.5 text-rose-400">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Points clés de la vidéo (3 repères argumentaires)</span>
+                          </div>
+                          {isVideoPointsExpanded ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                          )}
+                        </button>
+
+                        {isVideoPointsExpanded && (
+                          <ul className="px-3 pb-3 pt-1 space-y-1.5 text-xs text-zinc-300 border-t border-zinc-800/60">
+                            {videoPoints.slice(0, 3).map((pt, pIdx) => (
+                              <li key={pIdx} className="flex items-start gap-2 leading-relaxed">
+                                <span className="text-rose-400 font-bold shrink-0 mt-0.5">•</span>
+                                <span>{pt}</span>
                               </li>
                             ))}
                           </ul>
-                        </div>
-                      )}
-
-                      {/* 2. Débat Contradictoire & Angles Morts */}
-                      {selectedArticle.debat_nuance && (
-                        <div className={`p-2.5 rounded-lg border space-y-2 text-xs ${
-                          isDark ? "bg-zinc-800/60 border-zinc-700/60" : "bg-slate-50 border-slate-200"
-                        }`}>
-                          <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5">
-                            <Scale className="w-3.5 h-3.5" />
-                            <span>Débat Contradictoire & Angles Morts</span>
-                          </div>
-                          {selectedArticle.debat_nuance.dominante && (
-                            <div>
-                              <span className="font-bold text-[10px] uppercase opacity-70">Thèse dominante : </span>
-                              <span className="italic">{selectedArticle.debat_nuance.dominante}</span>
-                            </div>
-                          )}
-                          {selectedArticle.debat_nuance.angles_morts && selectedArticle.debat_nuance.angles_morts.length > 0 && (
-                            <div className="space-y-1">
-                              <span className="font-bold text-[10px] uppercase opacity-70">Angles morts & données omises :</span>
-                              <ul className="space-y-0.5 pl-1">
-                                {selectedArticle.debat_nuance.angles_morts.map((am, amIdx) => (
-                                  <li key={amIdx} className="flex items-start gap-1.5 leading-snug">
-                                    <span className="text-amber-500 font-bold shrink-0 mt-0.5">⚠️</span>
-                                    <span>{am}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {selectedArticle.debat_nuance.question_discernement && (
-                            <div className={`p-2 rounded border text-xs font-medium ${
-                              isDark ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-200" : "bg-indigo-50/80 border-indigo-200 text-indigo-900"
-                            }`}>
-                              <span className="font-bold block text-[10px] uppercase tracking-wider text-indigo-400">Question de discernement :</span>
-                              « {selectedArticle.debat_nuance.question_discernement} »
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Bouton d'enrichissement si l'article n'a pas encore ces métriques */}
-                  {(!selectedArticle.keyFigures || selectedArticle.keyFigures.length === 0) && (
-                    <div className={`p-3 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${
-                      isDark ? "bg-indigo-950/20 border-indigo-800/40 text-slate-300" : "bg-indigo-50/60 border-indigo-200 text-indigo-950"
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span className="text-xs font-medium">Cet article peut être enrichi avec des métriques chiffrées et une analyse stratégique approfondie.</span>
+                        )}
                       </div>
-                      <button
-                        onClick={() => handleClarifyAndSpecifyArticle(selectedArticle)}
-                        disabled={isClarifyingArticle}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-transform active:scale-95 cursor-pointer shadow-xs disabled:opacity-50"
-                      >
-                        {isClarifyingArticle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                        <span>Enrichir en 1-Clic</span>
-                      </button>
                     </div>
-                  )}
-
-                  {/* PARTIE 2 : ENQUÊTE & ANALYSE APPROFONDIE (3X PLUS DÉTAILLÉE) */}
-                  <div className="space-y-4 pt-2">
-                    <div className={`flex items-center justify-between border-b pb-2 ${isDark ? "border-zinc-800" : "border-zinc-250"}`}>
-                      <span className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider ${isDark ? "text-indigo-300" : "text-indigo-950"}`}>
-                        <BookOpen className="w-4 h-4 text-indigo-500" />
-                        Partie 2 : Enquête & Analyse approfondie (3x plus détaillée)
-                      </span>
-                      <span className={`text-[11px] font-mono font-bold ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
-                        Grand Format
-                      </span>
-                    </div>
-
-                    <div 
-                      className="leading-loose font-sans space-y-5 transition-all duration-300 relative"
-                      style={{ fontSize: `${fontScale * 115}%` }}
-                    >
-                      {(() => {
-                        const cleanContent = cleanArticleContent(selectedArticle.content, selectedArticle.title, selectedArticle.summary);
-                        if (isBionicReading) {
-                          return (
-                            <div className="space-y-4">
-                              <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs font-bold ${
-                                isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-900"
-                              }`}>
-                                <div className="flex items-center gap-1.5">
-                                  <Zap className="w-3.5 h-3.5 fill-current text-amber-400" />
-                                  <span>Lecture Bionique active : fixation oculaire accélérée</span>
-                                </div>
-                                <span className="text-[11px] font-mono opacity-80 shrink-0">
-                                  ⏱️ ~{calculateReadingTimeMinutes(cleanContent).minutes} min restantes
-                                </span>
-                              </div>
-                              {formatBionicText(cleanContent)}
-                            </div>
-                          );
-                        }
-                        return cleanContent.split("\n\n").map((p, idx) => (
-                          <React.Fragment key={idx}>
-                            {renderParagraph(p)}
-                          </React.Fragment>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-
-                </div>
+                  );
+                })()}
 
                 {/* SECTION : LIEN YOUTUBE SUR LE SUJET - FORMAT STRICT 2 LIGNES */}
                 <div className={`mt-3 p-2.5 rounded-xl border transition-all ${
@@ -8257,7 +8541,61 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       <span>Tous les 10 outils...</span>
                     </button>
                   </div>
+
+                  {/* Bouton de fin de lecture : Terminer la lecture et revenir au flux */}
+                  <div className="pt-6 pb-2">
+                    <button
+                      onClick={handleCloseArticle}
+                      className="w-full py-3 px-4 rounded-xl bg-linear-to-r from-rose-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl cursor-pointer transition-all active:scale-98"
+                    >
+                      <ArrowLeft className="w-4 h-4 stroke-[3]" />
+                      <span>Terminer la lecture &amp; Retourner aux {filteredArticles.length} articles</span>
+                    </button>
+                  </div>
                 </div>
+              </div>
+
+              {/* Bouton Flottant de Défilement Rapide 1-Clic (Garanti & Instantané) */}
+              <div className="absolute right-3.5 bottom-14 z-30 flex flex-col items-center gap-1.5 pointer-events-auto">
+                {scrollPercent < 85 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (readerBodyRef.current) {
+                        try {
+                          readerBodyRef.current.scrollBy({ top: 400, behavior: "smooth" });
+                        } catch {
+                          readerBodyRef.current.scrollTop += 400;
+                        }
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-full bg-linear-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-xl border border-indigo-300/40 flex items-center gap-1.5 text-xs font-black transition-all active:scale-95 cursor-pointer hover:scale-105"
+                    title="Faire défiler vers le bas pour continuer la lecture"
+                  >
+                    <ChevronDown className="w-4 h-4 stroke-[3] animate-bounce" />
+                    <span className="text-xs font-black">Défiler ↓</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (readerBodyRef.current) {
+                        try {
+                          readerBodyRef.current.scrollTo({ top: 0, behavior: "smooth" });
+                        } catch {
+                          readerBodyRef.current.scrollTop = 0;
+                        }
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-100 shadow-xl border border-slate-600 flex items-center gap-1.5 text-xs font-black transition-all active:scale-95 cursor-pointer hover:scale-105"
+                    title="Remonter tout en haut de l'article"
+                  >
+                    <ChevronUp className="w-4 h-4 stroke-[3]" />
+                    <span className="text-xs font-black">Haut ↑</span>
+                  </button>
+                )}
               </div>
 
               {/* Reader Actions Footer - 1 seule ligne ultra-compacte (sans duplication) */}

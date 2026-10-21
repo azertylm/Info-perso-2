@@ -106,12 +106,14 @@ export interface NewsArticle {
   aiSummaryCustom?: string;
   aiSummaryModelUsed?: string;
   originalUrl?: string;
+  url?: string;
   createdAt?: number;
+  isNewTop20?: boolean;
+  isLatestGeneration?: boolean;
   isCustomGenerated?: boolean;
   isSerendipitous?: boolean;
   isLive?: boolean;
-  isNewTop20?: boolean;
-  isLatestGeneration?: boolean;
+  __isDeepEnriched?: boolean;
   rawRssLink?: string;
 
   // Pipeline de traitement éditorial complet (« Trier l'information avant de la subir »)
@@ -125,6 +127,20 @@ export interface NewsArticle {
   keyFigures?: ArticleKeyFigure[];
   keyTakeaways?: string[];
   strategicAnalysis?: ArticleStrategicAnalysis;
+
+  // Repères temporels (situer l'événement dans le temps long)
+  reperes_temporels?: ReperesTemporelsItem[];
+
+  // Intégration multimédia souveraine
+  youtubeId?: string;
+  youtubeUrl?: string;
+  points_cles_video?: string[];
+}
+
+export interface ReperesTemporelsItem {
+  date: string;
+  titre: string;
+  description: string;
 }
 
 /**

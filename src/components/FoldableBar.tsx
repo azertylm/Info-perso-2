@@ -62,26 +62,25 @@ export const FoldableBar: React.FC<FoldableBarProps> = ({
 
   return (
     <div className="relative inline-block text-xs">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {/* Main Trigger Button */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {/* Main Trigger Button - Ultra Compact & Rapetissé */}
         <button
           onClick={() => setIsOpenMenu(!isOpenMenu)}
-          className={`compact-action-btn px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition-all cursor-pointer shadow-xs ${
+          className={`compact-action-btn px-1.5 py-0.5 rounded-md border flex items-center gap-1 text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer shadow-2xs ${
             isDark
               ? "bg-slate-900/90 hover:bg-slate-800 border-slate-700 text-slate-200"
-              : "bg-white hover:bg-slate-50 border-slate-200 text-slate-800"
+              : "bg-white hover:bg-slate-50 border-slate-300 text-slate-800"
           }`}
-          title="Paramètres d'affichage pour smartphones pliants (Galaxy Z Fold, Pixel Fold, Z Flip)"
+          title="Paramètres d'affichage et structure d'écran (Standard, Pliant, Livre)"
         >
-          <Split className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden xs:inline">Pliant :</span>
-          <span className={`px-1.5 py-0.5 rounded text-[10px] border ${getPostureBadgeColor()}`}>
-            {activePosture === "book" ? "Livre 2 Volets" : activePosture === "flex" ? "Pupitre Flex" : "Standard"}
+          <Split className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+          <span className="text-[10px] font-bold whitespace-nowrap">
+            {activePosture === "book" ? "Livre" : activePosture === "flex" ? "Pupitre" : "Standard"}
           </span>
           {isFoldableDetected && (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Écran pliant détecté" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" title="Écran pliant détecté" />
           )}
-          <ChevronDown className={`w-3 h-3 transition-transform ${isOpenMenu ? "rotate-180" : ""}`} />
+          <ChevronDown className={`w-2 h-2 transition-transform shrink-0 ${isOpenMenu ? "rotate-180" : ""}`} />
         </button>
 
         {/* Quick Hinge Protection Indicator */}
@@ -92,14 +91,14 @@ export const FoldableBar: React.FC<FoldableBarProps> = ({
               onSetHingeGuard(next);
               onNotify(next ? "🛡️ Protection charnière activée (espacement central anti-pliure)" : "Protection charnière désactivée");
             }}
-            className={`compact-action-btn px-2 py-1 rounded-lg border text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-all ${
+            className={`compact-action-btn px-1.5 py-0.5 rounded-lg border text-[10px] font-medium flex items-center gap-1 cursor-pointer transition-all ${
               hingeGuard
                 ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/30"
                 : isDark ? "bg-slate-800/60 text-slate-400 border-slate-700/60" : "bg-slate-100 text-slate-600 border-slate-200"
             }`}
             title="Insérer un espacement central pour éviter que le texte ne soit sur la pliure de l'écran"
           >
-            <ShieldCheck className="w-3 h-3" />
+            <ShieldCheck className="w-2.5 h-2.5" />
             <span className="hidden sm:inline">Charnière</span>
           </button>
         )}
@@ -113,7 +112,7 @@ export const FoldableBar: React.FC<FoldableBarProps> = ({
             onClick={() => setIsOpenMenu(false)}
           />
           <div
-            className={`absolute left-0 mt-2 w-72 rounded-2xl border shadow-xl z-50 p-3 space-y-3 ${
+            className={`absolute right-0 mt-1.5 w-72 rounded-2xl border shadow-xl z-50 p-3 space-y-3 ${
               isDark
                 ? "bg-slate-900 border-slate-700 text-slate-100"
                 : "bg-white border-slate-200 text-slate-900"

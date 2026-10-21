@@ -366,11 +366,11 @@ export async function exportArticleAsPdf({
     if (cleanContent) {
       checkPageBreak(15);
 
-      // Sous-titre "TEXTE INTÉGRAL"
+      // Titre de section éditoriale
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(15, 23, 42); // Slate 900
-      doc.text("TEXTE INTÉGRAL", margin, currentY);
+      doc.text("DÉVELOPPEMENT & ANALYSE ÉDITORIALE", margin, currentY);
       currentY += 3;
 
       doc.setDrawColor(203, 213, 225);

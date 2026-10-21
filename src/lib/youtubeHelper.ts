@@ -176,3 +176,110 @@ export function getYouTubeSearchUrl(
 
   return url;
 }
+
+/**
+ * Extrait l'identifiant unique (11 caractères) d'une vidéo YouTube depuis n'importe quel format d'URL
+ * Exemples supportés :
+ * - https://youtu.be/B0DKcepA8ME
+ * - https://youtu.be/B0DKcepA8ME?is=UJSuiotLfQllloHp
+ * - https://www.youtube.com/watch?v=B0DKcepA8ME
+ * - https://www.youtube.com/embed/B0DKcepA8ME
+ */
+export function extractYouTubeVideoId(urlOrText: string): string | null {
+  if (!urlOrText || typeof urlOrText !== "string") return null;
+
+  // 1. Format court youtu.be/ID
+  const shortMatch = urlOrText.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+  if (shortMatch && shortMatch[1]) {
+    return shortMatch[1];
+  }
+
+  // 2. Format standard youtube.com/watch?v=ID ou youtube.com/embed/ID
+  const standardMatch = urlOrText.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/i);
+  if (standardMatch && standardMatch[1]) {
+    return standardMatch[1];
+  }
+
+  return null;
+}
+
+/**
+ * Génère l'URL d'intégration souveraine sans pistage (youtube-nocookie.com)
+ */
+export function getYouTubeEmbedUrl(videoId: string): string {
+  if (!videoId) return "";
+  return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
+}
+
+/**
+ * Recherche et extrait toutes les URLs ou identifiants YouTube présents dans un texte
+ */
+export function extractAllYouTubeIds(text: string): string[] {
+  if (!text) return [];
+  const results = new Set<string>();
+  
+  // Chercher tous les tokens ressemblant à une URL youtube
+  const regex = /(https?:\/\/[^\s"'<>]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const url = match[1];
+    const id = extractYouTubeVideoId(url);
+    if (id) {
+      results.add(id);
+    }
+  }
+
+  return Array.from(results);
+}
+
+/**
+ * Extrait ou synthétise 3 points clés percutants pour accompagner la vidéo YouTube sans pistage
+ */
+export function getVideoKeyPoints(article: NewsArticle | null | undefined): string[] {
+  if (!article) return [];
+
+  // 1. Points clés vidéo explicitement définis
+  if (article.points_cles_video && article.points_cles_video.length >= 3) {
+    return article.points_cles_video.slice(0, 3);
+  }
+
+  // 2. Déduction depuis les takeaways ou faits vérifiés
+  if (article.keyTakeaways && article.keyTakeaways.length >= 3) {
+    return article.keyTakeaways.slice(0, 3);
+  }
+  if (article.faits_verifies && article.faits_verifies.length >= 3) {
+    return article.faits_verifies.slice(0, 3);
+  }
+
+  // 3. Synthèse contextuelle basée sur l'analyse stratégique
+  if (article.strategicAnalysis) {
+    const points: string[] = [];
+    if (article.strategicAnalysis.actorsInvolved && article.strategicAnalysis.actorsInvolved.length > 0) {
+      points.push(`Acteurs clés : confrontation des approches de ${article.strategicAnalysis.actorsInvolved.slice(0, 2).join(" et ")}.`);
+    }
+    if (article.strategicAnalysis.marketImpact) {
+      points.push(`Enjeux sectoriels : ${article.strategicAnalysis.marketImpact}`);
+    }
+    if (article.strategicAnalysis.nextMilestone) {
+      points.push(`Calendrier opérationnel : ${article.strategicAnalysis.nextMilestone}`);
+    }
+    if (points.length >= 3) return points;
+  }
+
+  // 4. Découpage du résumé en 3 points distincts
+  const summarySentences = (article.summary || article.title || "")
+    .split(/[.!?]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 15);
+
+  if (summarySentences.length >= 3) {
+    return summarySentences.slice(0, 3);
+  }
+
+  return [
+    `Faits majeurs documentés et contexte vérifié concernant « ${article.title} ».`,
+    `Analyse critique des arguments contradictoires et décryptage des répercussions concrètes.`,
+    `Perspectives d'avenir et jalons stratégiques à surveiller pour les prochains mois.`
+  ];
+}
+

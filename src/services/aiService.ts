@@ -365,3 +365,81 @@ export async function enrichEditorialArticle(
 export const enrichFeedOrRawText = enrichEditorialArticle;
 export const enrichEditorialContent = enrichEditorialArticle;
 
+export interface PodcastSpeechOptions {
+  text: string;
+  voiceGender?: "male" | "female";
+  speed?: number;
+  apiKey?: string;
+  onOfflineFallback?: (reason: string) => void;
+}
+
+export interface PodcastSpeechResult {
+  success: boolean;
+  audioBase64?: string;
+  mimeType?: string;
+  source: string;
+  voiceLabel: string;
+  isLocalFallback?: boolean;
+}
+
+/**
+ * Pipeline de synthèse vocale haute fidélité (Propositions 1 et 2)
+ * Configure une persona de journaliste de matinale d'information
+ * avec repli automatique vers la synthèse locale Web Speech API en cas de mode hors-ligne.
+ */
+export async function synthesizePodcastSpeech(
+  options: PodcastSpeechOptions
+): Promise<PodcastSpeechResult> {
+  const { text, voiceGender = "male", speed = 1.12, apiKey } = options;
+
+  // 1. Si l'application détecte un état hors-ligne immédiat
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    options.onOfflineFallback?.("Appareil hors-ligne (métro / zone blanche)");
+    return {
+      success: false,
+      source: "web_speech_api_offline",
+      voiceLabel: "Voix Système Locale (Mode Hors-Ligne)",
+      isLocalFallback: true,
+    };
+  }
+
+  // 2. Appel prioritaire au serveur (/api/podcast/tts)
+  try {
+    const res = await fetch("/api/podcast/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        voiceGender,
+        speed,
+        apiKey: apiKey || ""
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.audioBase64) {
+        return {
+          success: true,
+          audioBase64: data.audioBase64,
+          mimeType: data.mimeType || "audio/mp3",
+          source: data.source || "neural_tts",
+          voiceLabel: data.voiceLabel || "Voix Studio Matinale HD",
+          isLocalFallback: false,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[aiService] Échec réseau vers le serveur TTS:", err);
+  }
+
+  // 3. Fallback propre vers la synthèse Web Speech API locale
+  options.onOfflineFallback?.("Réseau indisponible, bascule locale");
+  return {
+    success: false,
+    source: "web_speech_api_fallback",
+    voiceLabel: "Voix Système Locale (Repli Souverain)",
+    isLocalFallback: true,
+  };
+}
+

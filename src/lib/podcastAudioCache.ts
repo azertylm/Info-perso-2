@@ -1,11 +1,11 @@
 /**
  * Cache audio persistant local IndexedDB pour le Flash InfoPerso / ALPHABETTE SASU
- * Solution 16 : Temps de restitution 0 ms & Écoute intégrale hors-ligne (Métro / TGV / Zone blanche)
- * Souveraineté numérique : Stockage 100% sur le terminal de l'utilisateur, zéro revente de données.
+ * Proposition 4 : Pipeline de mise en cache souverain zéro-latence (0 ms) & écoute nomade
+ * Empreinte cryptographique SHA-256 par chronique et stockage local (zéro revente de données).
  */
 
 const DB_NAME = "InfoPerso_PodcastAudio_DB";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "audio_segments";
 const DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
 
@@ -15,6 +15,7 @@ export interface CachedAudioItem {
   mimeType: string;
   createdAt: number;
   sizeBytes: number;
+  audioBlob?: Blob;
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -43,6 +44,7 @@ function openDB(): Promise<IDBDatabase> {
  * Calcul de l'empreinte cryptographique SHA-256 du texte en utilisant l'API Web Crypto native
  */
 export async function computeAudioHash(text: string): Promise<string> {
+  if (!text) return "empty_hash";
   if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
     try {
       const msgBuffer = new TextEncoder().encode(text.trim().toLowerCase());
@@ -62,12 +64,42 @@ export async function computeAudioHash(text: string): Promise<string> {
 }
 
 /**
- * Récupère un segment audio mis en cache local par son hash
+ * Détermine si la clé fournie est déjà un hash SHA-256 ou du texte brut
+ */
+async function resolveKey(keyOrText: string): Promise<string> {
+  if (/^[a-f0-9]{64}$/i.test(keyOrText) || keyOrText.startsWith("h_")) {
+    return keyOrText;
+  }
+  return computeAudioHash(keyOrText);
+}
+
+/**
+ * Vérifie instantanément (0 ms) si une chronique audio est déjà présente en cache local
+ */
+export async function hasCachedAudio(keyOrText: string): Promise<boolean> {
+  try {
+    const hash = await resolveKey(keyOrText);
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.count(hash);
+      request.onsuccess = () => resolve(request.result > 0);
+      request.onerror = () => resolve(false);
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Récupère un segment audio mis en cache local par son hash SHA-256 ou son texte brut
  */
 export async function getCachedAudio(
-  hash: string
-): Promise<{ audioBase64: string; mimeType: string } | null> {
+  keyOrText: string
+): Promise<{ audioBase64: string; mimeType: string; blob?: Blob } | null> {
   try {
+    const hash = await resolveKey(keyOrText);
     const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, "readonly");
@@ -77,7 +109,22 @@ export async function getCachedAudio(
       request.onsuccess = () => {
         const item = request.result as CachedAudioItem | undefined;
         if (item && item.audioBase64) {
-          resolve({ audioBase64: item.audioBase64, mimeType: item.mimeType || "audio/mp3" });
+          let blob = item.audioBlob;
+          if (!blob && item.audioBase64) {
+            try {
+              const byteCharacters = atob(item.audioBase64);
+              const byteNumbers = new Uint8Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              blob = new Blob([byteNumbers], { type: item.mimeType || "audio/mp3" });
+            } catch {}
+          }
+          resolve({
+            audioBase64: item.audioBase64,
+            mimeType: item.mimeType || "audio/mp3",
+            blob
+          });
         } else {
           resolve(null);
         }
@@ -91,21 +138,25 @@ export async function getCachedAudio(
 }
 
 /**
- * Enregistre un segment audio en cache persistant local
+ * Enregistre un segment audio en cache persistant local (IndexedDB)
+ * Accepte base64 ou Blob avec calcul automatique de l'empreinte SHA-256
  */
 export async function saveCachedAudio(
-  hash: string,
+  keyOrText: string,
   audioBase64: string,
-  mimeType: string = "audio/mp3"
+  mimeType: string = "audio/mp3",
+  audioBlob?: Blob
 ): Promise<void> {
   try {
+    const hash = await resolveKey(keyOrText);
     const db = await openDB();
     const item: CachedAudioItem = {
       hash,
       audioBase64,
       mimeType,
+      audioBlob,
       createdAt: Date.now(),
-      sizeBytes: Math.round((audioBase64.length * 3) / 4)
+      sizeBytes: audioBlob ? audioBlob.size : Math.round((audioBase64.length * 3) / 4)
     };
 
     return new Promise((resolve, reject) => {
@@ -119,6 +170,31 @@ export async function saveCachedAudio(
   } catch (_) {
     // Échec silencieux si le stockage privé du navigateur est saturé
   }
+}
+
+/**
+ * Stocke directement un Blob audio dans le cache IndexedDB
+ */
+export async function saveAudioBlob(
+  text: string,
+  blob: Blob,
+  mimeType: string = "audio/mp3"
+): Promise<string> {
+  const hash = await computeAudioHash(text);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const base64Data = (reader.result as string).split(",")[1] || "";
+        await saveCachedAudio(hash, base64Data, mimeType, blob);
+        resolve(hash);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**
@@ -156,7 +232,7 @@ export async function cleanExpiredAudioCache(ttlMs: number = DEFAULT_TTL_MS): Pr
 }
 
 /**
- * Récupère les métriques de stockage local (Solution 20)
+ * Récupère les métriques de stockage local
  */
 export async function getAudioCacheMetrics(): Promise<{ count: number; totalSizeKB: number }> {
   try {
@@ -182,3 +258,4 @@ export async function getAudioCacheMetrics(): Promise<{ count: number; totalSize
     return { count: 0, totalSizeKB: 0 };
   }
 }
+

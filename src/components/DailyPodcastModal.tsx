@@ -279,6 +279,9 @@ class RadioAudioEngine {
     try {
       this.initMastering();
       if (!this.ctx || !this.warmthFilter) return;
+      if (this.ctx.state === "suspended") {
+        this.ctx.resume().catch(() => {});
+      }
       const source = this.ctx.createMediaElementSource(audio);
       source.connect(this.warmthFilter);
     } catch {
@@ -320,8 +323,9 @@ export function renderFormattedAudioScript(text: string, isDark: boolean) {
 }
 
 /**
- * Règle stricte des 3 phrases par dossier (Solution 3) & Attaque In Media Res (Solution 2)
- * Priorité absolue au script_podcast oralisé de 90s issu du pipeline éditorial
+ * Lecture intégrale et exhaustive de tous les points du dossier :
+ * Lit l'ensemble des faits vérifiés, points clés, chiffres et perspectives sans coupure
+ * ni contrainte artificielle de 90 secondes.
  */
 function buildThreeSentenceBrief(
   art: NewsArticle,
@@ -333,73 +337,7 @@ function buildThreeSentenceBrief(
   displayScript: string;
   keyTakeaway: string;
 } {
-  // 1. Priorité au script_podcast oralisé de 90s
-  if (art.script_podcast && art.script_podcast.trim().length > 20) {
-    const raw = art.script_podcast.trim();
-    const textToSpeak = raw.replace(/\[[^\]]+\]/g, "").replace(/\s+/g, " ").trim();
-    const takeaway = (art.faits_verifies && art.faits_verifies[0]) || art.debat_nuance?.dominante || art.title;
-
-    return {
-      title: `${index + 1}. ${art.title}`,
-      textToSpeak,
-      displayScript: raw,
-      keyTakeaway: takeaway
-    };
-  }
-
-  // 2. Priorité aux faits vérifiés
-  if (art.faits_verifies && art.faits_verifies.length >= 2) {
-    const f1 = art.faits_verifies[0];
-    const f2 = art.faits_verifies[1];
-    const f3 = art.faits_verifies[2] || `Les faits vérifiés confirment la portée de ce dossier.`;
-    const textToSpeak = `${f1} ${f2} ${f3}`;
-    const displayScript = `⚡ **1. Fait brut :** ${f1}\n\n📊 **2. Donnée clé :** ${f2}\n\n🎯 **3. Conséquence directe :** ${f3}`;
-    return {
-      title: `${index + 1}. ${art.title}`,
-      textToSpeak,
-      displayScript,
-      keyTakeaway: f1
-    };
-  }
-
-  const cleanSummary = purgeFillerWords(art.summary || art.content || "");
-  const sentences = cleanSummary
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 15 && !s.toLowerCase().startsWith("retrouvez"));
-
-  // Phrase 1 : Fait brut vérifié (Attaque directe sans préambule)
-  let p1 = sentences[0] || `${art.title}.`;
-  p1 = purgeFillerWords(p1);
-  if (!p1.endsWith(".") && !p1.endsWith("!") && !p1.endsWith("?")) p1 += ".";
-
-  // Phrase 2 : Donnée chiffrée ou mécanisme d'action
-  let p2 = sentences[1] || `Le dossier engage directement les équilibres du secteur ${art.category || "économique"}.`;
-  p2 = purgeFillerWords(p2);
-  if (!p2.endsWith(".") && !p2.endsWith("!") && !p2.endsWith("?")) p2 += ".";
-
-  // Phrase 3 : Conséquence directe pour le citoyen ou le marché
-  let p3 = sentences[2] || `Les arbitrages en cours fixeront les conditions opérationnelles des prochains mois.`;
-  p3 = purgeFillerWords(p3);
-  if (!p3.endsWith(".") && !p3.endsWith("!") && !p3.endsWith("?")) p3 += ".";
-
-  if (fmt === "strategic") {
-    p3 = `Conséquence stratégique : ${p3}`;
-  } else if (fmt === "impact") {
-    p3 = `Impact économique : ${p3}`;
-  }
-
-  // Pas de connecteurs oratoires, juste les 3 faits enchaînés
-  const textToSpeak = `${p1} ${p2} ${p3}`;
-  const displayScript = `⚡ **1. Fait brut :** ${p1}\n\n📊 **2. Donnée clé :** ${p2}\n\n🎯 **3. Conséquence directe :** ${p3}`;
-  const keyTakeaway = sentences[0]?.slice(0, 85) || art.title;
-
-  return {
-    title: `${index + 1}. ${art.title}`,
-    textToSpeak,
-    displayScript,
-    keyTakeaway
-  };
+  return buildEssentialBrief(art, fmt, index);
 }
 
 export const DailyPodcastModal: React.FC<DailyPodcastModalProps> = ({
@@ -581,11 +519,8 @@ export const DailyPodcastModal: React.FC<DailyPodcastModalProps> = ({
 RÈGLES ABSOLUES ET STRICTES :
 1. FORMAT : MONOLOGUE JOURNALISTIQUE UNIQUE (Une seule voix, solo). INTERDICTION FORMELLE DE FAIRE UN DIALOGUE, UNE INTERVIEW OU D'UTILISER DEUX PERSONNAGES.
 2. ATTAQUE IN MEDIA RES : Zéro introduction, zéro formule de bienvenue, zéro "Bonjour à tous". Le tout premier mot est directement le fait de l'article 1.
-3. RÈGLE STRICTE DES 3 PHRASES PAR DOSSIER (Strictement 3 phrases par dossier, exactement 5 dossiers = 15 phrases denses au total) :
-   - Phrase 1 : Le fait brut vérifié (Sujet + Verbe d'action au présent, droit au but).
-   - Phrase 2 : Le chiffre clé ou mécanisme stratégique précis.
-   - Phrase 3 : La conséquence directe pour le citoyen ou le secteur.
-4. ZÉRO FORMULE DE CONCLUSION NI D'ADIEU : Aucune phrase de fin type "Merci de nous avoir écoutés", "Bonne journée", "À demain". L'émission s'arrête net sur la dernière conséquence du 5ème dossier.
+3. LECTURE EXHAUSTIVE DE TOUS LES POINTS : Lire l'intégralité des faits vérifiés, chiffres clés, angles contradictoires et conséquences concrètes. Zéro restriction de durée, chaque fait important doit être prononcé intégralement.
+4. ZÉRO FORMULE DE CONCLUSION NI D'ADIEU : Aucune phrase de fin type "Merci de nous avoir écoutés", "Bonne journée", "À demain".
 5. ÉLAGAGE TOTAL : Interdiction des connecteurs creux ("En effet", "Notons que", "Il convient de noter", "Force est de constater").
 6. EXACTEMENT 5 DOSSIERS DANS L'ORDRE D'INTÉRÊT :
 
@@ -600,8 +535,8 @@ Format JSON requis :
       "speakerName": "Journaliste InfoPerso",
       "title": "Titre direct du dossier",
       "category": "Catégorie",
-      "textToSpeak": "Exactement les 3 phrases enchaînées sans fioritures.",
-      "displayScript": "⚡ **1. Fait brut :** Phrase 1\\n\\n📊 **2. Donnée clé :** Phrase 2\\n\\n🎯 **3. Conséquence :** Phrase 3",
+      "textToSpeak": "Lecture fluide et exhaustive de tous les faits vérifiés du dossier enchaînés avec pauses naturelles.",
+      "displayScript": "🔹 **1. Fait :** ...\n\n📊 **2. Chiffre :** ...\n\n🎯 **3. Conséquence :** ...",
       "keyTakeaway": "Point clé en 1 phrase courte",
       "articleIndex": 1
     }
@@ -664,6 +599,10 @@ Format JSON requis :
     if (localTimerRef.current) {
       clearInterval(localTimerRef.current);
       localTimerRef.current = null;
+    }
+    if (speechKeepAliveRef.current) {
+      clearInterval(speechKeepAliveRef.current);
+      speechKeepAliveRef.current = null;
     }
     if (htmlAudioRef.current) {
       htmlAudioRef.current.pause();
@@ -779,7 +718,7 @@ Format JSON requis :
         setChapterProgress((target / dur) * 100);
       }
     } else if (synth) {
-      playLocalUtterance(chapters[currentChapterIndex], false);
+      playLocalUtterance(chapters[currentChapterIndex], false, currentChapterIndex);
       onNotify(deltaSeconds < 0 ? "⏪ Recul au début du dossier" : "⏩ Avance rapide");
     }
   };
@@ -842,26 +781,38 @@ Format JSON requis :
     }
   };
 
-  const playLocalUtterance = (chapter: PodcastChapter, isFirstChapter: boolean) => {
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechKeepAliveRef = useRef<any>(null);
+
+  const clearSpeechKeepAlive = () => {
+    if (speechKeepAliveRef.current) {
+      clearInterval(speechKeepAliveRef.current);
+      speechKeepAliveRef.current = null;
+    }
+  };
+
+  const playLocalUtterance = (chapter: PodcastChapter, isFirstChapter: boolean, chapterIdx: number) => {
     if (!synth) return;
     synth.cancel();
+    clearSpeechKeepAlive();
     if (localTimerRef.current) clearInterval(localTimerRef.current);
 
-    // Solution 9 & 10 : Épuration stricte des marqueurs techniques et normalisation prosodique
+    // Épuration stricte et normalisation prosodique
     const cleanSpeech = chapter.textToSpeak.replace(/\[[^\]]+\]/g, " ").replace(/\s+/g, " ").trim();
     const prosodyText = injectSpeechProsody(cleanSpeech);
-    const utterance = new SpeechSynthesisUtterance(prosodyText);
-    utterance.lang = "fr-FR";
-    utterance.rate = playbackRate;
 
-    if (voiceJournaliste) {
-      utterance.voice = voiceJournaliste;
-    }
-    utterance.pitch = 1.0;
+    // Découpage en phrases pour éliminer définitivement le bug de coupure des 14s de Chromium
+    const sentences = prosodyText
+      .split(/(?<=[.!?…])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
-    // Simulation de progression pour la synthèse vocale locale
+    const validSentences = sentences.length > 0 ? sentences : [prosodyText];
+    let currentSentenceIdx = 0;
+
+    // Simulation de progression réaliste
     const words = cleanSpeech.split(/\s+/).length;
-    const estimatedDuration = Math.max(12, Math.round((words / 150) * 60 / playbackRate));
+    const estimatedDuration = Math.max(15, Math.round((words / 140) * 60 / playbackRate));
     setChapterDuration(estimatedDuration);
     setChapterCurrentTime(0);
     setChapterProgress(0);
@@ -871,39 +822,65 @@ Format JSON requis :
       const elapsed = (Date.now() - startTime) / 1000;
       setChapterCurrentTime(Math.min(estimatedDuration, elapsed));
       setChapterProgress(Math.min(99, (elapsed / estimatedDuration) * 100));
-    }, 200);
+    }, 250);
 
-    utterance.onend = () => {
-      if (localTimerRef.current) {
-        clearInterval(localTimerRef.current);
-        localTimerRef.current = null;
+    // Relance périodique anti-blocage de l'API Web Speech de Chrome
+    speechKeepAliveRef.current = setInterval(() => {
+      if (synth && synth.speaking && !synth.paused) {
+        synth.pause();
+        synth.resume();
       }
-      setChapterProgress(100);
-      if (radioBedEnabled) {
-        radioAudio.duckRadioBed(false);
-      }
+    }, 6000);
 
-      if (activeChapterRef.current < chapters.length - 1) {
-        const nextIdx = activeChapterRef.current + 1;
-        setCurrentChapterIndex(nextIdx);
-        setTimeout(() => {
-          if (isPlayingRef.current) {
-            playChapter(nextIdx);
-          }
-        }, 180);
-      } else {
-        if (soundEffectsEnabled) {
-          radioAudio.playOutroJingle();
+    const speakSentence = (idx: number) => {
+      if (!isPlayingRef.current || idx >= validSentences.length) {
+        clearSpeechKeepAlive();
+        if (localTimerRef.current) {
+          clearInterval(localTimerRef.current);
+          localTimerRef.current = null;
         }
-        // Recréer automatiquement 5 chapitres dès l'écoute achevée
-        handleRenewFiveChapters(autoRenew);
-      }
-    };
+        setChapterProgress(100);
+        if (radioBedEnabled) {
+          radioAudio.duckRadioBed(false);
+        }
 
-    utterance.onerror = (e) => {
-      if (localTimerRef.current) clearInterval(localTimerRef.current);
-      console.warn("[TTS] Speech error:", e);
-      setIsPlaying(false);
+        // Tous les points du dossier ont été lus : passage direct au suivant
+        const nextIdx = chapterIdx + 1;
+        if (nextIdx < chapters.length) {
+          setCurrentChapterIndex(nextIdx);
+          playChapter(nextIdx);
+        } else {
+          if (soundEffectsEnabled) {
+            radioAudio.playOutroJingle();
+          }
+          handleRenewFiveChapters(autoRenew);
+        }
+        return;
+      }
+
+      currentSentenceIdx = idx;
+      const utterance = new SpeechSynthesisUtterance(validSentences[idx]);
+      utterance.lang = "fr-FR";
+      utterance.rate = playbackRate;
+      utterance.pitch = 1.0;
+
+      if (voiceJournaliste) {
+        utterance.voice = voiceJournaliste;
+      }
+
+      activeUtteranceRef.current = utterance;
+
+      utterance.onend = () => {
+        // Enchaîner immédiatement la phrase suivante du même dossier
+        speakSentence(idx + 1);
+      };
+
+      utterance.onerror = (e) => {
+        console.warn("[TTS] Local utterance chunk error:", e);
+        speakSentence(idx + 1);
+      };
+
+      synth.speak(utterance);
     };
 
     setIsPlaying(true);
@@ -912,7 +889,7 @@ Format JSON requis :
       if (radioBedEnabled) {
         radioAudio.duckRadioBed(true);
       }
-      synth.speak(utterance);
+      speakSentence(0);
     }, delay);
   };
 
@@ -928,6 +905,9 @@ Format JSON requis :
     audio.playbackRate = playbackRate;
     htmlAudioRef.current = audio;
 
+    // Chaîne de mastering acoustique broadcast radio Web Audio API
+    radioAudio.attachAudioElement(audio);
+
     audio.ontimeupdate = () => {
       if (audio.duration && audio.duration > 0) {
         setChapterCurrentTime(audio.currentTime);
@@ -941,19 +921,16 @@ Format JSON requis :
       if (radioBedEnabled) {
         radioAudio.duckRadioBed(false);
       }
-      if (activeChapterRef.current < chapters.length - 1) {
-        const nextIdx = activeChapterRef.current + 1;
+
+      // Lecture intégrale achevée : passage direct et immédiat au dossier suivant
+      const nextIdx = index + 1;
+      if (nextIdx < chapters.length) {
         setCurrentChapterIndex(nextIdx);
-        setTimeout(() => {
-          if (isPlayingRef.current) {
-            playChapter(nextIdx);
-          }
-        }, 180);
+        playChapter(nextIdx);
       } else {
         if (soundEffectsEnabled) {
           radioAudio.playOutroJingle();
         }
-        // Recréer automatiquement 5 chapitres dès l'écoute achevée
         handleRenewFiveChapters(autoRenew);
       }
     };
@@ -961,25 +938,24 @@ Format JSON requis :
     audio.onerror = () => {
       console.warn("[TTS] Erreur lecture audio HTML5, bascule locale...");
       setIsLoadingAudio(false);
-      playLocalUtterance(chapter, isFirstChapter);
+      playLocalUtterance(chapter, isFirstChapter, index);
     };
 
     setIsLoadingAudio(false);
 
-    // Déclencher le pré-chargement en tâche de fond du dossier suivant (Solution 13)
+    // Déclencher le pré-chargement en tâche de fond du dossier suivant
     if (index + 1 < chapters.length) {
       prefetchNextChapterAudio(index + 1);
     }
 
     const delay = soundEffectsEnabled && isFirstChapter ? 450 : 80;
     setTimeout(() => {
-      console.log("Playing audio element", chapter.title);
       if (isPlayingRef.current) {
         if (radioBedEnabled) {
           radioAudio.duckRadioBed(true);
         }
         audio.play().catch(() => {
-          playLocalUtterance(chapter, isFirstChapter);
+          playLocalUtterance(chapter, isFirstChapter, index);
         });
       }
     }, delay);
@@ -1081,7 +1057,7 @@ Format JSON requis :
 
     // Solution 9 & 10 : Moteur local optimisé avec phonétique et prosodie
     setAudioLatency({ ms: 0, source: "Voix Système Locale" });
-    playLocalUtterance(chapter, isFirstChapter);
+    playLocalUtterance(chapter, isFirstChapter, index);
   };
 
   // Solution 14 : Synchronisation native avec MediaSession API (Écran de verrouillage, Bluetooth, Écouteurs)
@@ -1094,7 +1070,7 @@ Format JSON requis :
       navigator.mediaSession.metadata = new MediaMetadata({
         title: `${currentChapterIndex + 1}. ${currentChapter.title.replace(/^\d+\.\s*/, "")}`,
         artist: "InfoPerso — ALPHABETTE SASU",
-        album: "Flash Vocal 90s Chrono",
+        album: "Chronique Vocale InfoPerso",
         artwork: [
           { src: "/favicon.ico", sizes: "96x96", type: "image/x-icon" },
           { src: "/logo.png", sizes: "512x512", type: "image/png" }
@@ -1220,7 +1196,7 @@ Format JSON requis :
               <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPlaying ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
             </span>
             <span className="text-xs font-bold truncate">
-              Flash 90s • {currentChapterIndex + 1}/5 : {currentChapter?.title || "Dossier en cours"}
+              Dossier {currentChapterIndex + 1}/{chapters.length} : {currentChapter?.title || "Dossier en cours"}
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -1321,10 +1297,10 @@ Format JSON requis :
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-bold text-xs sm:text-sm tracking-tight text-zinc-900 dark:text-white truncate">
-                  Flash 90 secondes
+                  Écoute des Dossiers & Faits
                 </h3>
                 <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium shrink-0">
-                  5 dossiers
+                  {chapters.length} dossiers
                 </span>
                 {isPlaying && (
                   <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-mono font-medium text-emerald-600 dark:text-emerald-400 shrink-0">

@@ -233,8 +233,9 @@ export function rankArticlesByUserInterest(
 }
 
 /**
- * Règle stricte des 3 phrases par dossier :
- * Va le plus possible à l'essentiel, sans introduction ni fioriture.
+ * Lecture intégrale et exhaustive de tous les points du dossier :
+ * Lit la totalité des faits vérifiés, chiffres clés, angles morts et points d'attention
+ * sans limitation arbitraire de temps ou de 3 phrases.
  */
 export function buildEssentialBrief(
   art: NewsArticle,
@@ -247,50 +248,78 @@ export function buildEssentialBrief(
   displayScript: string;
   keyTakeaway: string;
 } {
-  const cleanSummary = purgeFillerWords(art.summary || art.content || "");
-  const sentences = cleanSummary
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 12 && !s.toLowerCase().startsWith("retrouvez"));
+  const pointsToSpeak: string[] = [];
+  const displayPoints: string[] = [];
 
-  // 1. Fait brut vérifié (Attaque directe sans préambule)
-  let p1 = sentences[0] || `${art.title}.`;
-  p1 = purgeFillerWords(p1);
-  if (!p1.endsWith(".") && !p1.endsWith("!") && !p1.endsWith("?")) p1 += ".";
+  // Attaque : Titre du dossier
+  const titleClean = art.title.replace(/\s+/g, " ").trim();
+  pointsToSpeak.push(`${titleClean}.`);
 
-  // 2. Chiffre clé, fait technique ou mécanisme précis
-  let p2 =
-    sentences[1] ||
-    (art.keyFigures && art.keyFigures.length > 0
-      ? `${art.keyFigures[0].label} : ${art.keyFigures[0].value}.`
-      : `Le dossier engage directement les équilibres du secteur ${art.category || "économique"}.`);
-  p2 = purgeFillerWords(p2);
-  if (!p2.endsWith(".") && !p2.endsWith("!") && !p2.endsWith("?")) p2 += ".";
+  // Cas 1 : Faits vérifiés rédigés
+  if (art.faits_verifies && art.faits_verifies.length > 0) {
+    art.faits_verifies.forEach((fait, i) => {
+      const cleanFait = purgeFillerWords(fait);
+      if (cleanFait) {
+        pointsToSpeak.push(cleanFait);
+        displayPoints.push(`🔹 **Point ${i + 1} :** ${cleanFait}`);
+      }
+    });
 
-  // 3. Conséquence directe pour le citoyen ou le marché
-  let p3 =
-    sentences[2] ||
-    (art.keyTakeaways && art.keyTakeaways.length > 0
-      ? art.keyTakeaways[0]
-      : `Les arbitrages opérationnels détermineront l'impact sur les prochains mois.`);
-  p3 = purgeFillerWords(p3);
-  if (!p3.endsWith(".") && !p3.endsWith("!") && !p3.endsWith("?")) p3 += ".";
+    // Angles morts et débat contradictoire
+    if (art.debat_nuance?.angles_morts && art.debat_nuance.angles_morts.length > 0) {
+      const angles = art.debat_nuance.angles_morts.join(". ");
+      pointsToSpeak.push(`Angles morts et contre-arguments : ${angles}`);
+      displayPoints.push(`⚖️ **Angles morts :** ${angles}`);
+    }
 
-  if (fmt === "strategic") {
-    p3 = `Conséquence stratégique : ${p3}`;
-  } else if (fmt === "impact") {
-    p3 = `Impact économique direct : ${p3}`;
+    if (art.debat_nuance?.question_discernement) {
+      pointsToSpeak.push(`Question de discernement : ${art.debat_nuance.question_discernement}`);
+      displayPoints.push(`💡 **Question de discernement :** ${art.debat_nuance.question_discernement}`);
+    }
+  } else {
+    // Cas 2 : Tous les faits et phrases du résumé et contenu
+    const cleanSummary = purgeFillerWords(art.summary || art.content || "");
+    const sentences = cleanSummary
+      .split(/(?<=[.!?])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 10 && !s.toLowerCase().startsWith("retrouvez"));
+
+    if (sentences.length > 0) {
+      sentences.forEach((sentence, i) => {
+        let p = sentence;
+        if (!p.endsWith(".") && !p.endsWith("!") && !p.endsWith("?")) p += ".";
+        pointsToSpeak.push(p);
+        displayPoints.push(`🔹 **Point ${i + 1} :** ${p}`);
+      });
+    } else {
+      pointsToSpeak.push(`${art.title}.`);
+      displayPoints.push(`🔹 **Point 1 :** ${art.title}`);
+    }
+
+    if (art.keyFigures && art.keyFigures.length > 0) {
+      art.keyFigures.forEach((kf) => {
+        const kfText = `${kf.label} : ${kf.value}.`;
+        pointsToSpeak.push(kfText);
+        displayPoints.push(`📊 **Donnée clé :** ${kfText}`);
+      });
+    }
+
+    if (art.keyTakeaways && art.keyTakeaways.length > 0) {
+      art.keyTakeaways.forEach((kt) => {
+        pointsToSpeak.push(kt);
+        displayPoints.push(`🎯 **Point clé :** ${kt}`);
+      });
+    }
   }
 
-  // Zéro connecteur creux : 3 faits denses enchaînés
-  const textToSpeak = `${p1} ${p2} ${p3}`;
-  const displayScript = `⚡ **1. Fait brut :** ${p1}\n\n📊 **2. Donnée clé :** ${p2}\n\n🎯 **3. Conséquence directe :** ${p3}`;
-  const keyTakeaway = sentences[0]?.slice(0, 85) || art.title;
+  const textToSpeak = pointsToSpeak.join(" [Pause] ");
+  const displayScript = displayPoints.join("\n\n");
+  const keyTakeaway = art.faits_verifies?.[0] || art.title;
 
   return {
     title: `${index + 1}. ${art.title}`,
     textToSpeak,
-    displayScript,
+    displayScript: displayScript || textToSpeak,
     keyTakeaway
   };
 }

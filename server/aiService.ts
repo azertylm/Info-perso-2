@@ -945,3 +945,189 @@ export class AiServiceRouter {
 }
 
 export const aiService = new AiServiceRouter();
+
+export interface VoiceGenerationOptions {
+  text: string;
+  voiceGender?: "male" | "female";
+  speed?: number;
+  apiKey?: string;
+}
+
+export interface VoiceGenerationResult {
+  success: boolean;
+  audioBase64?: string;
+  mimeType?: string;
+  source: "google_gemini_tts" | "google_cloud_studio" | "google_cloud_journey" | "sovereign_piper_vps" | "fallback_local";
+  voiceLabel: string;
+  normalizedText: string;
+}
+
+/**
+ * Pipeline de Synthèse Vocale Haute Fidélité pour Format Podcast Radio (Propositions 1 et 2)
+ * Configure une persona de journaliste de matinale d'information :
+ * voix calme, articulation nette, ton posé et mesuré.
+ */
+export async function generateHighFidelityVoice(
+  options: VoiceGenerationOptions
+): Promise<VoiceGenerationResult> {
+  const { text, voiceGender = "male", speed = 1.12, apiKey } = options;
+  const effectiveKey = apiKey || process.env.GEMINI_API_KEY || "";
+  const gender = voiceGender === "female" ? "female" : "male";
+
+  // PROPOSITION 1 : Moteur Google Gemini TTS Natif (gemini-3.8-flash-lite-tts)
+  if (effectiveKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: effectiveKey });
+      const voiceName = gender === "female" ? "Kore" : "Fenrir";
+
+      const geminiRes = await ai.models.generateContent({
+        model: "gemini-3.8-flash-lite-tts",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text,
+                speechMetadata: {
+                  style: "Journaliste de matinale d'information radio, voix calme, articulation nette, ton posé et mesuré, intonations humaines et chaleureuses",
+                },
+              },
+            ],
+          },
+        ] as any,
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName,
+              },
+            },
+          },
+        } as any,
+      });
+
+      const candidate = geminiRes.candidates?.[0];
+      const audioPart = candidate?.content?.parts?.find(
+        (p: any) => p.inlineData?.data && (p.inlineData?.mimeType?.startsWith("audio/") || !p.text)
+      );
+      const base64Data = audioPart?.inlineData?.data || candidate?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Data) {
+        return {
+          success: true,
+          audioBase64: base64Data,
+          mimeType: audioPart?.inlineData?.mimeType || "audio/wav",
+          source: "google_gemini_tts",
+          voiceLabel: `Google Gemini TTS Matinale (${voiceName})`,
+          normalizedText: text,
+        };
+      }
+    } catch (errGemini: any) {
+      console.warn("[TTS Engine] Gemini TTS non disponible, bascule vers Google Studio/Journey...", errGemini?.message || errGemini);
+    }
+
+    // PROPOSITION 2 : Voix Google Cloud « Studio » et « Journey » (Broadcast Matinale)
+    try {
+      const preferredStudioVoice = gender === "female" ? "fr-FR-Studio-A" : "fr-FR-Studio-B";
+      const gTtsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${effectiveKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { text },
+          voice: {
+            languageCode: "fr-FR",
+            name: preferredStudioVoice
+          },
+          audioConfig: {
+            audioEncoding: "MP3",
+            speakingRate: speed,
+            pitch: 0.0,
+            effectsProfileId: ["broadcast-quality-speaker", "headphone-class-device"]
+          }
+        })
+      });
+
+      if (gTtsRes.ok) {
+        const gData = await gTtsRes.json();
+        if (gData.audioContent) {
+          return {
+            success: true,
+            audioBase64: gData.audioContent,
+            mimeType: "audio/mp3",
+            source: "google_cloud_studio",
+            voiceLabel: `Google Studio Matinale (${preferredStudioVoice})`,
+            normalizedText: text,
+          };
+        }
+      } else {
+        // Repli Journey
+        const journeyVoice = gender === "female" ? "fr-FR-Journey-F" : "fr-FR-Journey-D";
+        const jRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${effectiveKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: { text },
+            voice: {
+              languageCode: "fr-FR",
+              name: journeyVoice
+            },
+            audioConfig: {
+              audioEncoding: "MP3",
+              speakingRate: speed,
+              effectsProfileId: ["broadcast-quality-speaker", "headphone-class-device"]
+            }
+          })
+        });
+
+        if (jRes.ok) {
+          const jData = await jRes.json();
+          if (jData.audioContent) {
+            return {
+              success: true,
+              audioBase64: jData.audioContent,
+              mimeType: "audio/mp3",
+              source: "google_cloud_journey",
+              voiceLabel: `Google Journey Matinale (${journeyVoice})`,
+              normalizedText: text,
+            };
+          }
+        }
+      }
+    } catch (errCloud: any) {
+      console.warn("[TTS Engine] Google Cloud TTS Studio/Journey non accessible:", errCloud?.message || errCloud);
+    }
+  }
+
+  // Solution 3 : Conteneur Piper TTS souverain auto-hébergé sur VPS OVH
+  const piperUrl = process.env.PIPER_TTS_URL;
+  if (piperUrl) {
+    try {
+      const piperRes = await fetch(`${piperUrl}/synthesize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, length_scale: 1 / speed })
+      });
+      if (piperRes.ok) {
+        const arrayBuf = await piperRes.arrayBuffer();
+        return {
+          success: true,
+          audioBase64: Buffer.from(arrayBuf).toString("base64"),
+          mimeType: "audio/wav",
+          source: "sovereign_piper_vps",
+          voiceLabel: "Piper VPS Matinale Souverain",
+          normalizedText: text,
+        };
+      }
+    } catch (errPiper) {
+      console.warn("[TTS Engine] Microservice Piper non joignable:", errPiper);
+    }
+  }
+
+  return {
+    success: false,
+    source: "fallback_local",
+    voiceLabel: "Web Speech API Synthèse Locale",
+    normalizedText: text,
+  };
+}
+

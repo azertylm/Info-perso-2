@@ -1078,25 +1078,6 @@ export default function App() {
           <PWAInstallButton className="hidden sm:inline-flex" />
 
 
-
-          
-          {/* BOUTON DON & RIB (DEMANDE UTILISATEUR) */}
-          <button
-            onClick={() => {
-              setActiveTab("donations");
-              triggerToast("💝 Espace Dons & Relevé d'Identité Bancaire (RIB)");
-            }}
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 landscape:py-0.5 rounded-lg border text-xs font-black transition-all cursor-pointer ${
-              activeTab === "donations"
-                ? "bg-rose-600 text-white border-rose-500 shadow-sm"
-                : "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20"
-            }`}
-            title="Soutenir InfoPerso : Espace Dons & Relevé d'Identité Bancaire (RIB)"
-          >
-            <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 animate-pulse" />
-            <span className="inline">DON</span>
-          </button>
-
           {/* USER ACCOUNT & MULTI-DEVICE SYNC BUTTON */}
           <button
             onClick={() => setActiveTab("auth")}
@@ -1492,45 +1473,45 @@ export default function App() {
             ? `${isFun ? "h-[calc(100vh-125px)]" : "h-[calc(100vh-88px)]"} overflow-hidden flex flex-col pb-28 md:pb-0`
             : "overflow-y-auto"
         }`}>
-          {activeTab === "flux" && (
-            <div className="space-y-6">
-              <NewsFeed
-                refreshFluxTrigger={refreshFluxTrigger}
-                apiKeys={apiKeys}
-                savedIds={savedIds}
-                readIds={readIds}
-                onToggleSave={handleToggleSave}
-                onMarkRead={handleMarkRead}
-                activeFilter={activeFilter}
-                activeTag={activeTag}
-                onNotify={triggerToast}
-                onClearFilters={() => {
-                  setActiveFilter(null);
-                  setActiveTag(null);
-                }}
-                onNavigateToTab={setActiveTab}
-                displayMode={displayMode}
-                themeMode={themeMode}
-                curiosityScore={curiosityScore}
-                stats={stats}
-                unlockedBadges={unlockedBadges}
-                passiveSignalsSettings={passiveSignalsSettings}
-                isEasyMode={isEasyMode}
-                easyModeLevel={easyModeLevel}
-                setEasyModeLevel={(level: number) => {
-                  setEasyModeLevel(level);
-                  try {
-                    localStorage.setItem("infoperso_easy_mode", String(level));
-                  } catch {}
-                  const labels = ["Standard (100%)", "Big 1 (+25%)", "Big 2 Maxi (+35% de plus)"];
-                  triggerToast(`✨ Taille d'affichage : ${labels[level]}`);
-                }}
-                onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
-              />
-            </div>
-          )}
+          {/* Main Feed Tab - Kept mounted in background to preserve scroll, reader state and 0ms switching */}
+          <div className={activeTab === "flux" ? "space-y-6" : "hidden"}>
+            <NewsFeed
+              refreshFluxTrigger={refreshFluxTrigger}
+              apiKeys={apiKeys}
+              savedIds={savedIds}
+              readIds={readIds}
+              onToggleSave={handleToggleSave}
+              onMarkRead={handleMarkRead}
+              activeFilter={activeFilter}
+              activeTag={activeTag}
+              onNotify={triggerToast}
+              onClearFilters={() => {
+                setActiveFilter(null);
+                setActiveTag(null);
+              }}
+              onNavigateToTab={setActiveTab}
+              displayMode={displayMode}
+              themeMode={themeMode}
+              curiosityScore={curiosityScore}
+              stats={stats}
+              unlockedBadges={unlockedBadges}
+              passiveSignalsSettings={passiveSignalsSettings}
+              isEasyMode={isEasyMode}
+              easyModeLevel={easyModeLevel}
+              setEasyModeLevel={(level: number) => {
+                setEasyModeLevel(level);
+                try {
+                  localStorage.setItem("infoperso_easy_mode", String(level));
+                } catch {}
+                const labels = ["Standard (100%)", "Big 1 (+25%)", "Big 2 Maxi (+35% de plus)"];
+                triggerToast(`✨ Taille d'affichage : ${labels[level]}`);
+              }}
+              onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+            />
+          </div>
 
-          {activeTab === "chat" && (
+          {/* Chat Tab - Preserved to maintain conversational flow and message history */}
+          <div className={activeTab === "chat" ? "h-full flex flex-col" : "hidden"}>
             <MultiChat
               apiKeys={apiKeys}
               onNotify={triggerToast}
@@ -1555,7 +1536,7 @@ export default function App() {
               }}
               appName={customTitle || "Info Perso"}
             />
-          )}
+          </div>
 
           {activeTab === "keys" && (
             <div className="space-y-8 max-w-4xl mx-auto">

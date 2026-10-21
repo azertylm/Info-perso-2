@@ -242,4 +242,36 @@ html:not(.dark) {
   }
 }
 
+/* === FLUIDITÉ & RENDU HAUTES PERFORMANCES (60/120 FPS) === */
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overscroll-behavior-y: contain;
+  touch-action: manipulation;
+}
+
+/* Accélération GPU & Rendu différé pour les cartes d'articles hors écran */
+.feed-articles-container > * {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 170px;
+  will-change: transform;
+}
+
+/* Accélération matérielle pour le lecteur d'article et les modales */
+#active-article-reader,
+.settings-modal-container {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Touch action pan-y fluide pour empêcher le blocage du défilement tactile */
+.touch-pan-y {
+  touch-action: pan-y !important;
+}
+
 
