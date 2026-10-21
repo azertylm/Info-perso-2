@@ -97,7 +97,7 @@ import { CultureBarAndModal, CULTURE_SHORTCUTS } from "./CultureBarAndModal";
 import { getNextSuggestedWords, normalizeKeyword } from "../lib/semanticExplorer";
 import { EditorialMixerBar, ArticleFeedbackWidget, TagActionModal } from "./PersonalizationSuite";
 import { sanitizeArticleTemporalConsistency, fixTemporalConsistency, getTemporalPromptDirective } from "../lib/temporalConsistency";
-import { ensureArticleDeepData, cleanArticleContent, formatArticleDateTime, getArticleRelativeTime, deduplicateArticlesList, TRUMP_TMTG_FULL_CONTENT, MONDIAL_AUTO_2026_FULL_CONTENT, ENFANTS_ROUGES_FIRE_FULL_CONTENT } from "../lib/articleEnricher";
+import { ensureArticleDeepData, cleanArticleContent, formatArticleDateTime, getArticleRelativeTime, deduplicateArticlesList, getArticleHumanTone, TRUMP_TMTG_FULL_CONTENT, MONDIAL_AUTO_2026_FULL_CONTENT, ENFANTS_ROUGES_FIRE_FULL_CONTENT } from "../lib/articleEnricher";
 import { getQuotaStatus, incrementQuotaUsage } from "../lib/quotaManager";
 import { useFoldable } from "../lib/useFoldable";
 import { FoldableBar } from "./FoldableBar";
@@ -146,7 +146,7 @@ const INITIAL_ARTICLES: NewsArticle[] = [
       privacyCompliance: "Utilisation encadrée des caméras piétons et des drones de surveillance aérienne selon les règles de la CNIL.",
       nextMilestone: "Comparutions immédiates dans les tribunaux et allocution gouvernementale attendue."
     },
-    content: `### 1. Une journée de colère et de contestation sous haute tension\n\nLa mobilisation nationale du 17 et 18 octobre a rassemblé près de 550 000 manifestants à travers toute la France, avec des cortèges d'une ampleur inédite dans les grandes villes. Si la majorité des défilés s'est déroulée dans le calme, la fin d'après-midi et la nuit ont été marquées par des affrontements violents entre groupes d'émeutiers et forces de sécurité.\n\n### 2. Dégâts matériels majeurs et record d'interpellations\n\nÀ Paris, la préfecture de police a dénombré 855 interpellations, un chiffre record. Des vitrines de banques, de commerces de luxe et de concessions automobiles ont été brisées, et plusieurs incendies de mobilier urbain ont été allumés aux abords de la place de la République et des grands boulevards. En province, l'hôtel de ville de Limoges a subi un incendie partiel rapidement maîtrisé par les pompiers, tandis que des heurts sporadiques ont éclaté à Lyon, Nantes et Rennes.\n\n### 3. Réactions politiques et consignes de fermeté\n\nLe gouvernement a salué le professionnalisme des 150 policiers et gendarmes blessés lors des interventions. Des consignes de fermeté maximale ont été adressées aux parquets afin que les auteurs de violences et de pillages soient rapidement jugés en comparution immédiate. L'opposition et les observateurs s'interrogent désormais sur les répercussions politiques d'une telle explosion sociale.`,
+    content: `La mobilisation nationale du 17 et 18 octobre a rassemblé près de 550 000 manifestants à travers toute la France, avec des cortèges d'une ampleur inédite dans les grandes villes. Si la majorité des défilés s'est déroulée dans le calme, la fin d'après-midi et la nuit ont été marquées par des affrontements violents entre groupes d'émeutiers et forces de sécurité.\n\nÀ Paris, la préfecture de police a dénombré 855 interpellations, un chiffre record. Des vitrines de banques, de commerces de luxe et de concessions automobiles ont été brisées, et plusieurs incendies de mobilier urbain ont été allumés aux abords de la place de la République et des grands boulevards. En province, l'hôtel de ville de Limoges a subi un incendie partiel rapidement maîtrisé par les pompiers, tandis que des heurts sporadiques ont éclaté à Lyon, Nantes et Rennes.\n\nLe gouvernement a salué le professionnalisme des 150 policiers et gendarmes blessés lors des interventions. Des consignes de fermeté maximale ont été adressées aux parquets afin que les auteurs de violences et de pillages soient rapidement jugés en comparution immédiate. L'opposition et les observateurs s'interrogent désormais sur les répercussions politiques d'une telle explosion sociale.`,
     createdAt: Date.now() - 120000
   },
   {
@@ -186,7 +186,7 @@ const INITIAL_ARTICLES: NewsArticle[] = [
       nextMilestone: "Conclusions des experts de la police scientifique sur l'origine du feu et vote des aides d'urgence au Conseil de Paris."
     },
     content: ENFANTS_ROUGES_FIRE_FULL_CONTENT,
-    createdAt: 1791807600000
+    createdAt: 1760238000000 // Rétrospective (12 octobre 2026), classé dans les archives sans envahir la une
   },
   {
     id: 100,
@@ -219,31 +219,31 @@ const INITIAL_ARTICLES: NewsArticle[] = [
       privacyCompliance: "Chiffrement systématique de bout en bout des flux visuels/audio, contrôle granulaire des capteurs et engagement de non-réutilisation des données européennes pour l'entraînement conformément au RGPD.",
       nextMilestone: "Ouverture du SDK développeur Meta Muse à l'automne 2026 et intégration native dans le catalogue d'applications tierces."
     },
-    content: `### 1. La Genèse de Muse : Du Chatbot Textuel à l'Agent Incarné
+    content: `### La Genèse de Muse : Du Chatbot Textuel à l'Agent Incarné
 
 Lors de sa keynote annuelle retransmise depuis Menlo Park, Mark Zuckerberg a levé le voile sur l'aboutissement de trois années de recherche intensive chez Meta AI Research : **Muse**. Bien plus qu'un énième modèle de langage dérivé de la famille Llama, Muse marque une rupture paradigmatique majeure. Il s'agit du tout premier *agent multimodal incarné* conçu dès son architecture d'origine pour percevoir le monde physique à travers des flux sensoriels continus (vidéo stéréoscopique, microphones directionnels et capteurs spatiaux IMU).
 
 L'enjeu pour le groupe américain est existentiel. Après avoir investi plus de 35 milliards de dollars en dépenses d'investissement (Capex) pour équiper ses datacenters de grappes de puces Nvidia H100/B200 et de ses propres accélérateurs maison MTIA v2, Meta entend démontrer que l'intelligence artificielle n'est pas un gadget d'écran, mais la colonne vertébrale de la prochaine génération d'ordinateurs personnels.
 
-### 2. Architecture Technique : Un Modèle de 405 Milliards de Paramètres sous les 180 ms
+### Au cœur du modèle : 405 milliards de paramètres sous les 180 ms
 
 Sous le capot, Muse s'appuie sur une version ultra-optimisée de Llama 3.3 multimodal de 405 milliards de paramètres, couplée à un sous-réseau d'attention sparse dénommé *Dynamic Stream Router*. Contrairement aux architectures traditionnelles qui convertissent la parole en texte (ASR), soumettent le texte au LLM puis génèrent une voix de synthèse (TTS), Muse ingère et synthétise directement les vecteurs audio et vidéo en continu.
 
 Cette symbiose neuronale directe permet d'atteindre un temps de réaction exceptionnel inférieur à 180 millisecondes, se situant ainsi sous le seuil d'interruption naturelle de la conversation humaine. Le modèle est capable de repérer un objet posé sur une table, de commenter une manipulation technique en temps réel ou de traduire instantanément un panneau tout en modulant son intonation vocale en fonction du stress ou de l'urgence exprimée par l'interlocuteur.
 
-### 3. Matériel et Écosystème : La Revanche des Lunettes Ray-Ban Meta et du Quest 3
+### La Revanche des Lunettes Ray-Ban Meta et du Quest 3
 
 La force de frappe de Meta réside dans son écosystème matériel déjà en place. Les lunettes connectées Ray-Ban Meta, dont les ventes ont dépassé toutes les prévisions en 2025-2026, deviennent le réceptacle naturel de Muse. Grâce à des caméras ultra-légères de 12 mégapixels et cinq microphones intégrés dans la monture, l'agent Muse accompagne l'utilisateur dans son quotidien urbain sans qu'il n'ait jamais à sortir son smartphone de sa poche.
 
 Dans le domaine du métavers et de la réalité mixte, le casque Meta Quest 3 bénéficiera dès la prochaine mise à jour système v78 de l'intégration de Muse sous la forme d'un co-pilote immersif. L'agent sera capable de guider les utilisateurs dans la modélisation 3D, d'animer des réunions collaboratives virtuelles et d'interagir avec les environnements virtuels comme le ferait un collègue humain présent dans la pièce.
 
-### 4. Guerre des Géants : Meta face à OpenAI Operator et Google Project Astra
+### Guerre des Géants : L'épreuve de vérité face à OpenAI et Google
 
 L'annonce de Muse intervient dans un climat de rivalité technologique sans précédent. OpenAI prépare le déploiement de sa suite logicielle *Operator*, tandis que Google DeepMind accélère les démonstrations de son projet *Astra* au sein de l'écosystème Android et Pixel. Face à ces concurrents qui misent principalement sur l'environnement bureau et smartphone, Meta s'arroge une avance concrète sur le terrain de la vision embarquée et du port quotidien.
 
 Plusieurs analystes de Wall Street soulignent toutefois que le modèle économique de Muse devra trouver son équilibre entre la gratuité d'usage pour maintenir l'engagement sur Instagram/WhatsApp et la monétisation de services premium auprès des entreprises et des créateurs de contenu.
 
-### 5. Souveraineté Numérique, RGPD et AI Act Européen
+### Souveraineté, RGPD et défi de la confiance européenne
 
 Conscient des réticences historiques des autorités européennes de régulation (notamment la CNIL en France et la DPC irlandaise), Meta a pris les devants en détaillant une politique de conformité stricte dédiée à Muse sur le territoire de l'Union européenne. L'agent intègre un module de filtrage local garantissant que les flux vidéo de l'environnement ambiant ne sont jamais conservés sur les serveurs distants une fois la requête satisfaite.
 
@@ -1590,12 +1590,18 @@ export default function NewsFeed({
         if (Array.isArray(parsed) && parsed.length > 0) {
           const seenIds = new Set<number>();
           let idCounter = 200;
+          let hasSeenEnfantsInSaved = false;
           list = parsed
             .filter((art) => {
               if (!art || typeof art !== "object") return false;
-              const fullTxt = `${art.title || ""} ${art.summary || ""} ${(art.tags || []).join(" ")}`.toLowerCase();
+              const fullTxt = `${art.id} ${art.title || ""} ${art.summary || ""} ${(art.tags || []).join(" ")}`.toLowerCase();
               if (fullTxt.includes("nuñez") || fullTxt.includes("nunez") || fullTxt.includes("98 000 hectares") || fullTxt.includes("98000 hectares")) {
                 return false;
+              }
+              // Règle absolue anti-doublon Enfants Rouges dans les données sauvegardées
+              if (fullTxt.includes("enfants rouges") || fullTxt.includes("enfants-rouges") || fullTxt.includes("enfantsrouges")) {
+                if (hasSeenEnfantsInSaved) return false;
+                hasSeenEnfantsInSaved = true;
               }
               if (isHallucinatedOrCorrupted(art)) return false;
               return true;
@@ -2190,7 +2196,7 @@ export default function NewsFeed({
       "- 'keyFigures' : tableau de 3 métriques chiffrées [{ label: 'string', value: 'string', detail: 'string' }]\n" +
       "- 'keyTakeaways' : tableau de 3 à 4 enseignements clés\n" +
       "- 'strategicAnalysis' : { actorsInvolved: ['Acteur 1', 'Acteur 2'], marketImpact: '...', privacyCompliance: '...', nextMilestone: '...' }\n" +
-      "- 'corps' : texte informatif de 3 à 5 paragraphes factuels et précis structuré avec sous-titres markdown '### '\n" +
+      "- 'corps' : grand récit journalistique incarné de 3 à 5 paragraphes denses avec une vraie humanité (humour fin ou gravité selon le sujet), sans numérotation artificielle (JAMAIS de '### 1.' ni d'intitulé de phase comme 'Contexte', 'Analyse approfondie', 'Pack économique')\n" +
       "- 'score' : entier entre 78 et 98\n\n" +
       "Uniquement le tableau JSON brut [ ... ], sans balises markdown." +
       getTemporalPromptDirective();
@@ -2720,7 +2726,7 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
     onAwardCuriosityPoints(1, `Intérêt accru pour ${article.category} via Swipe`, article.category, "read");
   };
 
-  const renderParagraph = (paragraph: string) => {
+  const renderParagraph = (paragraph: string, pIdx: number = 0) => {
     let cleanText = fixTemporalConsistency(paragraph)
       .replace(/<!\[CDATA\[/gi, "")
       .replace(/\]\]>/gi, "");
@@ -2806,12 +2812,19 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
 
     // Sub-headings: ### or ## or #
     if (cleanText.startsWith("### ") || cleanText.startsWith("## ") || cleanText.startsWith("# ")) {
-      const heading = cleanText.replace(/^#+\s*/, "");
+      const heading = cleanText.replace(/^#+\s*(?:\d+\.\s*)?/, "").trim();
+      // Filtrer impitoyablement les intertitres robotiques de cabinet et phases scolaires
+      if (
+        /^(?:contexte|faits majeurs|d[ée]cryptage|analyse approfondie|enjeux sectoriels|impacts? [eé]conomiques?|retomb[ée]es pratiques|perspectives|calendrier|prochaines [eé]ch[ée]ances|pack [eé]conomique|phase d'analyse|phase de r[ée]flexion|r[ée]flexion)\b/i.test(heading) ||
+        /analyse approfondie|impacts? [eé]conomiques?|pack [eé]conomique|contexte & faits majeurs|perspectives, calendrier|retomb[ée]es pratiques/i.test(heading)
+      ) {
+        return null;
+      }
       return (
-        <h4 className={`text-base sm:text-lg font-black tracking-tight mt-6 mb-3 flex items-center gap-2 pt-3 border-t border-slate-700/30 ${
+        <h4 className={`text-base sm:text-lg font-bold tracking-tight mt-5 mb-2.5 flex items-center gap-2 pt-2.5 border-t border-slate-700/20 ${
           isDark ? "text-indigo-300" : isWarm ? "text-amber-950 font-serif" : "text-indigo-950"
         }`}>
-          <span className="w-1.5 h-4.5 rounded-full bg-indigo-500 shrink-0"></span>
+          <span className="w-1.5 h-3.5 rounded-full bg-indigo-500 shrink-0"></span>
           <span>{renderFormattedInline(heading)}</span>
         </h4>
       );
@@ -2845,6 +2858,20 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
             );
           })}
         </ul>
+      );
+    }
+
+    // Lettrine littéraire élégante sur le tout premier paragraphe du récit
+    if (pIdx === 0 && cleanText.length > 20 && !cleanText.startsWith("<") && !cleanText.startsWith(">") && !cleanText.startsWith("{")) {
+      const firstLetter = cleanText.charAt(0);
+      const rest = cleanText.slice(1);
+      return (
+        <p className={`leading-relaxed tracking-wide font-normal text-[15px] sm:text-base ${isDark ? "text-zinc-100" : "text-zinc-900"}`}>
+          <span className="float-left text-3xl sm:text-4xl font-serif font-black pr-2 pt-0.5 leading-none text-indigo-500 dark:text-indigo-400 select-none">
+            {firstLetter}
+          </span>
+          {renderFormattedInline(rest)}
+        </p>
       );
     }
 
@@ -3378,8 +3405,8 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
       "## Règles éditoriales indispensables :\n" +
       "- DENSITÉ D'INFORMATION MAXIMALE : Ne fais JAMAIS un article court ou superficiel. Développe en profondeur les dimensions techniques, économiques, stratégiques, éthiques et sociétales.\n" +
       "- NOMMAGE EXPLICITE OBLIGATOIRE : Nomme TOUJOURS explicitement les entités (entreprises, filiales, institutions, personnalités clés, modèles exacts, dates précises, métriques chiffrées).\n" +
-      "- STRUCTURE SOIGNÉE DU CORPS : Utilise des sous-titres markdown clairs '### 1. ...', '### 2. ...' pour structurer l'article en 5 à 7 sections fouillées.\n" +
-      "- Style : journalistique d'investigation (type Le Monde Grand Angle, Les Echos Décryptage, Bloomberg Deep Dive), fluide, soigné et immersif.\n\n" +
+      "- ÉCRITURE PROFONDÉMENT HUMAINE : Rédige comme un grand journaliste d'enquête doté d'une vraie sensibilité humaine, maniant avec justesse la gravité pour les drames ou l'humour fin et l'ironie pour les excès d'époque. BANNIS TOUTE numérotation de cabinet ('### 1.', '### 2.') et tout découpage scolaire ('Contexte', 'Analyse Approfondie', 'Impact Économique', 'Perspectives'). Soigne la cadence, les citations de terrain et les dilemmes réels.\n" +
+      "- Style : grand reportage d'investigation vivant, incarné, fluide et immersif.\n\n" +
       "## Format de sortie JSON STRICTEMENT OBLIGATOIRE :\n" +
       "Réponds UNIQUEMENT avec un objet JSON valide :\n" +
       "{\n" +
@@ -3408,7 +3435,7 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
       '    "privacyCompliance": "string (Protection des données, RGPD, AI Act, chiffrement)",\n' +
       '    "nextMilestone": "string (Prochaine étape clé ou calendrier de sortie)"\n' +
       '  },\n' +
-      '  "corps": "string (Grand format journalistique de 5 à 7 paragraphes denses avec sous-titres markdown ' + "### " + ' et citations)",\n' +
+      '  "corps": "string (Grand récit humain et captivant de 4 à 6 paragraphes denses sans numérotation artificielle ni phases scolaires)",\n' +
       '  "score": 100\n' +
       "}" +
       getTemporalPromptDirective();
@@ -4458,7 +4485,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
 
   // 2. Filtrage & Tri léger réactif avec deferredSearchQuery (60/120 FPS constant sans latence de frappe)
   const filteredArticles = useMemo(() => {
-    return personalizedArticles
+    const sortedList = personalizedArticles
       .filter((art: any) => {
         // Exclude if hidden by algorithm preferences
         if (art.isExcluded) return false;
@@ -4574,6 +4601,9 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
         if (b.score !== a.score) return b.score - a.score;
         return bTime - aTime;
       });
+
+    // Règle d'or anti-doublon absolue : le fil affiché ne peut JAMAIS contenir de doublon
+    return deduplicateArticlesList(sortedList);
   }, [
     personalizedArticles,
     deferredSearchQuery,
@@ -4745,7 +4775,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       "2. NOMME TOUT EXPLICITEMENT : entreprises (ex: Warner Bros. Discovery, Netflix, Apple, etc.), plateformes/marques (ex: Max, ChatGPT, iPhone), personnes clés, dates et chiffres précis (tarifs en euros, montants, volumes).\n" +
       "3. La source doit être un média officiel vérifié (ex: Les Echos, Le Monde, AFP, Reuters, Le Figaro, Variety, The Verge).\n" +
       "4. GÉNÈRE SYSTÉMATIQUEMENT LES CHIFFRES CLÉS (keyFigures), LES POINTS FORTS (keyTakeaways) ET L'ANALYSE STRATÉGIQUE (strategicAnalysis).\n" +
-      "5. Rédige un corps dense en 4 paragraphes structurés avec intertitres markdown '### 1. ...', '### 2. ...' et puces de faits.\n\n" +
+      "5. Rédige un grand récit humain, vivant et captivant en 4 paragraphes sans sous-titres numérotés ('### 1.', '### 2.') et sans intitulé scolaire ('Analyse approfondie', 'Pack économique'). Manie la gravité ou l'humour selon le sujet.\n\n" +
       "## FORMAT DE RÉPONSE JSON STRICTEMENT OBLIGATOIRE :\n" +
       "{\n" +
       '  "titre": "Titre journalistique très précis et percutant nommant les entités",\n' +
@@ -4754,7 +4784,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       '  "emoji": "📺",\n' +
       '  "tags": ["Tag1", "Tag2", "Tag3"],\n' +
       '  "resume": "2-3 phrases denses avec noms réels et chiffres",\n' +
-      '  "corps": "Texte complet d\'enquête de 4 paragraphes structurés avec intertitres markdown (### 1. ..., ### 2. ..., etc.) et puces de faits vérifiés",\n' +
+      '  "corps": "Récit d\'investigation humaine de 4 paragraphes denses et incarnés (sans numérotation artificielle ni phases scolaires)",\n' +
       '  "keyFigures": [\n' +
       '    { "label": "Chiffre 1", "value": "Valeur", "detail": "Explication factuelle" },\n' +
       '    { "label": "Chiffre 2", "value": "Valeur", "detail": "Explication factuelle" },\n' +
@@ -7215,7 +7245,31 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       );
                     })()}
 
-                    {/* CORPS DE L'ARTICLE : ENTRÉE IMMÉDIATE EN LECTURE (Zéro texte d'intro générique ni séparateur) */}
+                    {/* REGISTRE ÉMOTIONNEL & COMPAS HUMAIN DU RÉCIT (Gravité, Humour, Sensibilité) */}
+                    {(() => {
+                      const tone = getArticleHumanTone(selectedArticle);
+                      return (
+                        <div className={`my-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all ${
+                          isDark ? "bg-zinc-900/70 border-zinc-800" : "bg-slate-50 border-slate-200 shadow-2xs"
+                        }`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide border ${tone.badgeClass}`}>
+                              <span>{tone.emoji}</span>
+                              <span>{tone.toneBadge}</span>
+                            </span>
+                            <span className="italic text-xs opacity-85 font-serif">
+                              « {tone.humanQuote} »
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono opacity-70 shrink-0">
+                            <span>Tonalité :</span>
+                            <span className="font-bold text-indigo-400">{tone.sentimentLabel}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* CORPS DU RÉCIT : LECTURE FLUIDE, HUMAINE ET IMMERSIVE */}
                     <div className="pt-1">
                       <div 
                         className="font-sans leading-relaxed text-sm sm:text-base space-y-4 transition-all duration-300 relative"
@@ -7243,244 +7297,95 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                           }
                           return cleanContent.split("\n\n").map((p, idx) => (
                             <React.Fragment key={idx}>
-                              {renderParagraph(p)}
+                              {renderParagraph(p, idx)}
                             </React.Fragment>
                           ));
                         })()}
                       </div>
                     </div>
 
-                    {/* OUTILS D'ANALYSE CRITIQUE & CHIFFRES CLÉS (Format repliable épuré en bas d'article) */}
-                    <div className="mt-4 pt-3 border-t border-slate-700/20">
-                        <button
-                          onClick={() => setIsAnalysisDossierExpanded(!isAnalysisDossierExpanded)}
-                          className={`w-full p-2.5 sm:p-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
-                            isAnalysisDossierExpanded
-                              ? "bg-indigo-600 text-white border-indigo-500 shadow-xs"
-                              : isDark
-                              ? "bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border-zinc-800"
-                              : "bg-indigo-50/70 hover:bg-indigo-100/70 text-indigo-950 border-indigo-200 shadow-2xs"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Radio className="w-3.5 h-3.5" />
-                            <span>Dossier d'analyse critique, Chiffres clés & Débat de nuance</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-mono opacity-75">
-                              {isAnalysisDossierExpanded ? "Masquer le dossier" : "Déplier l'analyse"}
+                    {/* ENCART DE FIN DE LECTURE : POINTS CLÉS, REPÈRES CHIFFRÉS & PARTAGE 1-CLIC */}
+                    <div className="mt-6 pt-4 border-t border-slate-700/20 space-y-3.5">
+                      {/* Points clés rédigés avec humanité */}
+                      {selectedArticle.keyTakeaways && selectedArticle.keyTakeaways.length > 0 && (
+                        <div className={`p-3.5 sm:p-4 rounded-xl border space-y-2 ${
+                          isDark ? "bg-indigo-950/20 border-indigo-800/40 text-indigo-100" : "bg-indigo-50/60 border-indigo-200 text-indigo-950 shadow-2xs"
+                        }`}>
+                          <div className="flex items-center justify-between border-b pb-1.5 border-indigo-500/20">
+                            <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                              <span>Ce qu'il faut retenir • Les points clés</span>
                             </span>
-                            {isAnalysisDossierExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            <span className="text-[10px] font-mono opacity-70">
+                              {selectedArticle.keyTakeaways.length} repères
+                            </span>
                           </div>
+                          <ul className="space-y-1.5 pl-0.5">
+                            {selectedArticle.keyTakeaways.map((point, pIdx) => (
+                              <li key={pIdx} className="flex items-start gap-2 text-xs sm:text-sm leading-relaxed">
+                                <span className="text-indigo-500 dark:text-indigo-400 font-bold shrink-0 mt-0.5">•</span>
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Repères chiffrés discrets en bandeau inline */}
+                      {selectedArticle.keyFigures && selectedArticle.keyFigures.length > 0 && (
+                        <div className={`p-2.5 sm:p-3 rounded-xl border flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${
+                          isDark ? "bg-zinc-900/60 border-zinc-800 text-zinc-300" : "bg-zinc-100/80 border-zinc-200 text-zinc-800"
+                        }`}>
+                          <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400 shrink-0 mr-1">
+                            <BarChart3 className="w-3.5 h-3.5 opacity-80" />
+                            <span>Données & Repères :</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            {selectedArticle.keyFigures.map((fig, fIdx) => (
+                              <div key={fIdx} className="inline-flex items-baseline gap-1" title={fig.detail || fig.label}>
+                                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{fig.label} :</span>
+                                <span className="font-mono font-bold text-xs text-zinc-950 dark:text-white">{fig.value}</span>
+                                {fIdx < selectedArticle.keyFigures.length - 1 && (
+                                  <span className="text-zinc-300 dark:text-zinc-700 select-none ml-1.5">·</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bouton de copie 1-clic direct du récit pour partage immédiat (conforme aux règles permanentes) */}
+                      <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          onClick={() => {
+                            const fullStory = `${selectedArticle.title}\n\n${selectedArticle.summary || ""}\n\n${cleanArticleContent(selectedArticle.content, selectedArticle.title, selectedArticle.summary)}\n\nSource : ${selectedArticle.source} — InfoPerso`;
+                            navigator.clipboard.writeText(fullStory);
+                            onNotify("📋 Récit complet copié dans le presse-papier en 1 clic !");
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                            isDark
+                              ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700"
+                              : "bg-white hover:bg-slate-50 text-slate-800 border-slate-300 shadow-2xs"
+                          }`}
+                          title="Copier le texte intégral en 1 clic"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Copier le récit complet (1 clic)</span>
                         </button>
 
-                        {isAnalysisDossierExpanded && (
-                          <div className="mt-3 space-y-3">
-                            {/* SECTION ENRICHIE 1 : CHIFFRES & INDICATEURS CLÉS */}
-                            {selectedArticle.keyFigures && selectedArticle.keyFigures.length > 0 && (
-                              <div
-                                className={`px-2.5 py-1.5 rounded-lg border flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs transition-all ${
-                                  isDark
-                                    ? "bg-zinc-900/60 border-zinc-800 text-zinc-300"
-                                    : "bg-zinc-100/90 border-zinc-200 text-zinc-800"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] text-zinc-500 dark:text-zinc-400 shrink-0">
-                                  <BarChart3 className="w-3 h-3 opacity-80" />
-                                  <span>Chiffres clés :</span>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                                  {selectedArticle.keyFigures.map((fig, fIdx) => (
-                                    <div
-                                      key={fIdx}
-                                      className="inline-flex items-baseline gap-1"
-                                      title={fig.detail ? `${fig.label} : ${fig.value} — ${fig.detail}` : `${fig.label} : ${fig.value}`}
-                                    >
-                                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
-                                        {fig.label} :
-                                      </span>
-                                      <span className="font-mono font-bold text-xs text-zinc-950 dark:text-white">
-                                        {fig.value}
-                                      </span>
-                                      {fIdx < selectedArticle.keyFigures.length - 1 && (
-                                        <span className="text-zinc-300 dark:text-zinc-700 select-none ml-1">·</span>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* SECTION ENRICHIE 2 : POINTS CLÉS & À RETENIR */}
-                            {selectedArticle.keyTakeaways && selectedArticle.keyTakeaways.length > 0 && (
-                              <div className={`p-2.5 sm:p-3 rounded-xl border space-y-1.5 ${
-                                isDark ? "bg-indigo-950/20 border-indigo-800/40 text-indigo-100" : "bg-indigo-50/70 border-indigo-200 text-indigo-950 shadow-2xs"
-                              }`}>
-                                <div className="flex items-center justify-between border-b pb-1 border-indigo-500/20">
-                                  <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                                    <span>À Retenir • Synthèse</span>
-                                  </span>
-                                  <span className="text-[9px] font-mono opacity-70">
-                                    {selectedArticle.keyTakeaways.length} points
-                                  </span>
-                                </div>
-                                <ul className="space-y-1 pl-0.5">
-                                  {selectedArticle.keyTakeaways.map((point, pIdx) => (
-                                    <li key={pIdx} className="flex items-start gap-1.5 text-xs leading-snug">
-                                      <span className="text-indigo-400 font-bold shrink-0 mt-0.5 text-[10px]">✓</span>
-                                      <span>{point}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* SECTION ENRICHIE 3 : ANALYSE STRATÉGIQUE */}
-                            {selectedArticle.strategicAnalysis && (
-                              <div className={`p-2.5 sm:p-3 rounded-xl border space-y-2 ${
-                                isDark ? "bg-zinc-900/80 border-zinc-800 text-slate-200" : "bg-slate-50/90 border-slate-200 text-slate-900 shadow-2xs"
-                              }`}>
-                                <div className="flex items-center justify-between border-b pb-1 border-slate-700/30">
-                                  <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 text-cyan-500 dark:text-cyan-400">
-                                    <Target className="w-3 h-3 text-cyan-400 shrink-0" />
-                                    <span>Analyse Stratégique</span>
-                                  </span>
-                                  <span className="text-[9px] font-mono opacity-60">InfoPerso</span>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                                  {selectedArticle.strategicAnalysis.actorsInvolved && selectedArticle.strategicAnalysis.actorsInvolved.length > 0 && (
-                                    <div className="space-y-0.5">
-                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Acteurs :</span>
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
-                                        {selectedArticle.strategicAnalysis.actorsInvolved.map((actor, aIdx) => (
-                                          <span key={aIdx} className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold border ${
-                                            isDark ? "bg-slate-800 text-slate-200 border-slate-700" : "bg-white text-slate-800 border-slate-300"
-                                          }`}>
-                                            {actor}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {selectedArticle.strategicAnalysis.marketImpact && (
-                                    <div className="space-y-0.5">
-                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Impact Marché :</span>
-                                      <p className="leading-snug opacity-90">{selectedArticle.strategicAnalysis.marketImpact}</p>
-                                    </div>
-                                  )}
-                                  {selectedArticle.strategicAnalysis.privacyCompliance && (
-                                    <div className="space-y-0.5">
-                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Souveraineté :</span>
-                                      <p className="leading-snug opacity-90">{selectedArticle.strategicAnalysis.privacyCompliance}</p>
-                                    </div>
-                                  )}
-                                  {selectedArticle.strategicAnalysis.nextMilestone && (
-                                    <div className="space-y-0.5">
-                                      <span className="font-bold opacity-60 uppercase tracking-wider text-[9px]">Prochaine Étape :</span>
-                                      <p className="leading-snug font-semibold text-emerald-500 dark:text-emerald-300">{selectedArticle.strategicAnalysis.nextMilestone}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* PIPELINE ÉDITORIAL COMPLET */}
-                            {(selectedArticle.faits_verifies || selectedArticle.debat_nuance || selectedArticle.source_mention) && (
-                              <div className={`p-3.5 sm:p-4 rounded-xl border space-y-3 transition-all ${
-                                isDark ? "bg-slate-900/90 border-indigo-900/50 text-slate-200" : "bg-white border-indigo-200 text-slate-900 shadow-xs"
-                              }`}>
-                                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 border-indigo-500/20">
-                                  <div className="flex items-center gap-2">
-                                    <span className="p-1 rounded-md bg-indigo-600 text-white shadow-xs">
-                                      <Radio className="w-3.5 h-3.5" />
-                                    </span>
-                                    <div>
-                                      <div className="text-xs font-black tracking-wide uppercase text-indigo-500 dark:text-indigo-400">
-                                        Intelligence Éditoriale • Trier l'information avant de la subir
-                                      </div>
-                                      {selectedArticle.source_mention && (
-                                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
-                                          Source & attribution : <span className="font-semibold text-zinc-700 dark:text-zinc-300">{selectedArticle.source_mention}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {typeof selectedArticle.score_bruit === "number" && (
-                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                                      selectedArticle.score_bruit <= 2
-                                        ? isDark ? "bg-emerald-950/40 text-emerald-300 border-emerald-800" : "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                        : selectedArticle.score_bruit === 3
-                                        ? isDark ? "bg-amber-950/40 text-amber-300 border-amber-800" : "bg-amber-50 text-amber-800 border-amber-300"
-                                        : isDark ? "bg-rose-950/40 text-rose-300 border-rose-800" : "bg-rose-50 text-rose-800 border-rose-300"
-                                    }`}>
-                                      <span>Indice de bruit : {selectedArticle.score_bruit}/5</span>
-                                      <span className="opacity-75 font-normal text-[10px]">
-                                        {selectedArticle.score_bruit <= 2 ? "• Information de fond" : selectedArticle.score_bruit === 3 ? "• Bruit modéré" : "• Emballement éphémère"}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {selectedArticle.faits_verifies && selectedArticle.faits_verifies.length > 0 && (
-                                  <div className="space-y-1.5">
-                                    <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                                      <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Faits Vérifiés & Épurés (Réécriture intégrale)</span>
-                                    </div>
-                                    <ul className="space-y-1">
-                                      {selectedArticle.faits_verifies.map((fait, fIdx) => (
-                                        <li key={fIdx} className="text-xs leading-relaxed flex items-start gap-2 pl-1">
-                                          <span className="text-emerald-500 font-bold mt-0.5">•</span>
-                                          <span>{fait}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {selectedArticle.debat_nuance && (
-                                  <div className={`p-2.5 rounded-lg border space-y-2 text-xs ${
-                                    isDark ? "bg-zinc-800/60 border-zinc-700/60" : "bg-slate-50 border-slate-200"
-                                  }`}>
-                                    <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 flex items-center gap-1.5">
-                                      <Scale className="w-3.5 h-3.5" />
-                                      <span>Débat Contradictoire & Angles Morts</span>
-                                    </div>
-                                    {selectedArticle.debat_nuance.dominante && (
-                                      <div>
-                                        <span className="font-bold text-[10px] uppercase opacity-70">Thèse dominante : </span>
-                                        <span className="italic">{selectedArticle.debat_nuance.dominante}</span>
-                                      </div>
-                                    )}
-                                    {selectedArticle.debat_nuance.angles_morts && selectedArticle.debat_nuance.angles_morts.length > 0 && (
-                                      <div className="space-y-1">
-                                        <span className="font-bold text-[10px] uppercase opacity-70">Angles morts & données omises :</span>
-                                        <ul className="space-y-0.5 pl-1">
-                                          {selectedArticle.debat_nuance.angles_morts.map((am, amIdx) => (
-                                            <li key={amIdx} className="flex items-start gap-1.5 leading-snug">
-                                              <span className="text-amber-500 font-bold shrink-0 mt-0.5">⚠️</span>
-                                              <span>{am}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                    {selectedArticle.debat_nuance.question_discernement && (
-                                      <div className={`p-2 rounded border text-xs font-medium ${
-                                        isDark ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-200" : "bg-indigo-50/80 border-indigo-200 text-indigo-900"
-                                      }`}>
-                                        <span className="font-bold block text-[10px] uppercase tracking-wider text-indigo-400">Question de discernement :</span>
-                                        « {selectedArticle.debat_nuance.question_discernement} »
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                        {selectedArticle.originalUrl && (
+                          <a
+                            href={selectedArticle.originalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-indigo-400 hover:text-indigo-300 underline inline-flex items-center gap-1 font-medium"
+                          >
+                            <span>Consulter la source originale ({selectedArticle.source})</span>
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
                         )}
                       </div>
+                    </div>
 
                 {/* LECTEUR VIDÉO YOUTUBE SOUVERAIN (Placé en bas d'article pour ne jamais entraver la lecture) */}
                 {(() => {

@@ -604,7 +604,7 @@ class SovereignResilientStrategy implements AiStrategy {
           privacyCompliance: "Conformité stricte RGPD et absence de dépendance publicitaire.",
           nextMilestone: "Prochaine étape de déploiement d'ici le prochain trimestre."
         },
-        corps: `### 1. Contexte et Faits Vérifiés\n\n${item.summary}\n\nLes équipes et spécialistes de ${item.src} soulignent l'importance de ce jalon technique et industriel. L'accent est mis sur la fiabilité opérationnelle et l'indépendance technologique.\n\n### 2. Enjeux Stratégiques & Impact Économique\n\n${item.kw} L'initiative s'inscrit dans une politique volontariste de long terme, assurant une protection renforcée des usagers et une valorisation des compétences locales.\n\n### 3. Perspectives et Prochaines Échéances\n\nLes prochaines étapes prévoient une extension des phases de test et un accompagnement soutenu des usagers et professionnels concernés.`,
+        corps: `${item.summary}\n\nDerrière les dépêches et les chiffres froids, les témoignages des professionnels et des citoyens sur place racontent une réalité bien plus vivante. Les spécialistes de ${item.src} insistent sur le défi humain que représente cette étape : adapter les pratiques sans jamais renoncer à ce qui fonde la confiance des usagers.\n\n${item.kw} Loin des postures théoriques, le quotidien exige un équilibre subtil entre innovation et bon sens. Alors que les discussions s'animent sur la direction à prendre, les acteurs de terrain rappellent qu'aucune transition ne peut réussir si elle s'opère au détriment du lien humain.\n\nLes prochaines semaines apporteront des réponses concrètes. Une certitude demeure : l'engagement et la lucidité des personnes impliquées seront la véritable clé du succès.`,
         score: 82 + (idx % 16)
       }));
 
@@ -625,30 +625,24 @@ class SovereignResilientStrategy implements AiStrategy {
 
       const customArticleObj = {
         status: "ok",
-        titre: `Dossier d'Enquête : ${topicClean}`,
+        titre: `Dossier : ${topicClean}`,
         source: "InfoPerso Rédaction & Dépêches Indépendantes",
         categorie: "Technologie",
         date_publication: new Date().toLocaleDateString("fr-FR"),
         emoji: "✨",
         tags: [topicClean.slice(0, 15), "Enquête", "Souveraineté", "Innovation"],
-        resume: `Investigation approfondie et décryptage complet sur : ${topicClean}. Données vérifiées, acteurs majeurs et retombées stratégiques analysés en détail.`,
+        resume: `Récit de fond et mise en perspective humaine sur : ${topicClean}. Les faits vérifiés, les témoignages et les véritables enjeux pour notre quotidien.`,
         keyFigures: [
-          { label: "Niveau de Priorité", value: "Élevé", detail: `Enjeu majeur pour : ${topicClean}` },
-          { label: "Calendrier Clé", value: "2026", detail: "Phases opérationnelles en cours" },
-          { label: "Indice de Fiabilité", value: "98%", detail: "Sources recoupées et certifiées" }
+          { label: "Priorité humaine", value: "Essentielle", detail: `Impact direct sur le terrain pour : ${topicClean}` },
+          { label: "Horizon", value: "2026", detail: "Mise en œuvre concrète et concertations" },
+          { label: "Fiabilité", value: "98%", detail: "Sources indépendantes vérifiées" }
         ],
         keyTakeaways: [
-          `Analyse factuelle complète concernant ${topicClean}.`,
-          "Mise en lumière des défis industriels, économiques et sociétaux immédiats.",
-          "Garantie souveraine : 0 régie tierce, 0 revente de données personnelles."
+          `Éclairage humain et complet concernant ${topicClean}.`,
+          "Prise en compte des dilemmes éthiques et du vécu des usagers.",
+          "Garantie souveraine ALPHABETTE : zéro publicité, respect absolu de la vie privée."
         ],
-        strategicAnalysis: {
-          actorsInvolved: ["Institutions Européennes", "Entreprises Innovantes", "Utilisateurs Finaux"],
-          marketImpact: `Transformation structurelle des usages et dynamisation du marché autour de ${topicClean}.`,
-          privacyCompliance: "Respect strict du RGPD, traitement local prioritaire et chiffrement.",
-          nextMilestone: "Publication des prochains bilans d'étape dans les prochaines semaines."
-        },
-        corps: `### 1. Décryptage des Faits : Comprendre les Fondations de ${topicClean}\n\nAu cœur de l'actualité récente, **${topicClean}** suscite une attention soutenue auprès des observateurs économiques, technologiques et sociétaux. Les bilans officiels et déclarations des acteurs impliqués mettent en avant des transformations rapides qui dépassent le simple effet d'annonce.\n\nL'enjeu réside dans la capacité à conjuguer efficience opérationnelle et respect des libertés fondamentales.\n\n### 2. Acteurs Clés et Dimensions Économiques\n\nPlusieurs intervenants stratégiques mènent des travaux de fond pour structurer ce domaine. Les investissements consentis permettent d'accélérer le calendrier de mise en œuvre, tout en renforçant l'ancrage territorial des solutions développées.\n\nLes experts soulignent qu'une maîtrise locale des compétences constitue le meilleur rempart contre les dépendances extérieures critiques.\n\n### 3. Perspectives d'Avenir et Recommandations\n\nLes prochaines étapes s'annoncent déterminantes. L'adhésion des utilisateurs reposera sur la transparence des processus et la rigueur des garanties apportées. InfoPerso continuera de suivre de près l'évolution de ce dossier.`,
+        corps: `Au cœur de l'actualité contemporaine, **${topicClean}** ne laisse personne indifférent. Entre emballements médiatiques et jugements à l'emporte-pièce, il suffit souvent de tendre l'oreille pour constater combien les réalités de terrain contrastent avec les discours convenus.\n\nSur le terrain, les femmes et les hommes confrontés directement à ces mutations rappellent une évidence salutaire : toute transformation technologique ou institutionnelle ne vaut que par ce qu'elle apporte aux vies ordinaires. Les espoirs sont réels, mais les craintes le sont tout autant face aux risques de déshumanisation ou de précipitation.\n\nEntre gravité des constats et humour complice sur les travers de notre modernité, ce dossier rappelle que l'avenir s'écrit toujours à hauteur d'homme. Les semaines à venir s'annoncent décisives pour transformer les promesses en actes durables.`,
         score: 100
       };
 

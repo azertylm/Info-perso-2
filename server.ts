@@ -121,41 +121,41 @@ app.get("/api/alphabette/config", async (_req, res) => {
       individual: {
         autonomousByok: {
           id: "solo_byok",
-          name: "Formule Autonome (BYOK)",
-          priceYearly: 39,
+          name: "Formule Autonome (Info Perso)",
+          priceYearly: 15,
           currency: "EUR",
           period: "an",
           mistralManaged: false,
-          description: "Utilisation de votre propre clé API Mistral AI (Bring Your Own Key)"
+          description: "Abonnement annuel officiel ALPHABETTE SASU — 15 € TTC / an"
         },
         comfortManaged: {
           id: "solo_managed",
-          name: "Formule Confort",
-          priceYearly: 59,
+          name: "Formule Confort (Info Perso)",
+          priceYearly: 15,
           currency: "EUR",
           period: "an",
           mistralManaged: true,
-          description: "Clé API Mistral managée et administrée par Alphabette"
+          description: "Abonnement annuel officiel ALPHABETTE SASU — 15 € TTC / an"
         }
       },
       bundle: {
         bundleByok: {
           id: "bundle_byok",
-          name: "Pass Bouquet Alphabette BYOK (15 applications)",
-          priceYearly: 99,
+          name: "Pass ALPHABETTE Bouquet Complet (15 applications)",
+          priceYearly: 40,
           currency: "EUR",
           period: "an",
           mistralManaged: false,
-          description: "Accès illimité aux 15 applications avec votre propre clé Mistral"
+          description: "Accès illimité aux 15 applications actuelles et futures — 40 € TTC / an"
         },
         bundleIntegral: {
           id: "bundle_integral",
-          name: "Pass Bouquet Alphabette Intégral (15 applications)",
-          priceYearly: 199,
+          name: "Pass ALPHABETTE Intégral (15 applications)",
+          priceYearly: 40,
           currency: "EUR",
           period: "an",
           mistralManaged: true,
-          description: "Accès illimité aux 15 applications avec consommation d'IA managée"
+          description: "Accès illimité aux 15 applications actuelles et futures — 40 € TTC / an"
         }
       }
     },
@@ -1945,8 +1945,39 @@ function loadSharedArticlesFromDisk() {
     if (fs.existsSync(SHARED_ARTICLES_FILE)) {
       const raw = fs.readFileSync(SHARED_ARTICLES_FILE, "utf-8");
       const data = JSON.parse(raw);
+      const seenTitles = new Set<string>();
+      let hasSeenEnfantsRouges = false;
+
       for (const [id, article] of Object.entries(data)) {
-        sharedArticlesMap.set(String(id), article);
+        if (!article || typeof article !== "object") continue;
+        const art = article as any;
+        const title = (art.title || "").trim();
+        const fullTxt = `${id} ${title} ${art.summary || ""}`.toLowerCase();
+
+        // Règle absolue anti-doublon Enfants Rouges : 1 seul et unique article dans tout le système
+        if (fullTxt.includes("enfants rouges") || fullTxt.includes("enfants-rouges")) {
+          if (hasSeenEnfantsRouges) continue;
+          hasSeenEnfantsRouges = true;
+          art.id = 1791807600000;
+          art.createdAt = 1760238000000;
+          art.featured = false;
+          art.isLatestGeneration = false;
+          art.isNewTop20 = false;
+        }
+
+        const cleanTitle = title
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]/g, "")
+          .slice(0, 45);
+
+        if (cleanTitle && seenTitles.has(cleanTitle)) {
+          continue;
+        }
+        if (cleanTitle) seenTitles.add(cleanTitle);
+
+        sharedArticlesMap.set(String(art.id || id), art);
       }
     }
   } catch (err) {
@@ -2214,15 +2245,50 @@ app.get("/api/rss/live", async (req, res) => {
     // Sort by publication time (most recent first)
     allItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-    // Deduplicate by clean title
+    // Deduplicate by clean title and semantic event topic clustering
     const seenTitles = new Set<string>();
+    const seenTopicSignatures = new Set<string>();
+    let hasSeenEnfantsRougesRss = false;
     const deduplicated: any[] = [];
+
+    const STOP_WORDS_RSS = new Set([
+      "dans", "avec", "pour", "cette", "apres", "après", "avoir", "faire", "plus",
+      "sont", "leur", "leurs", "nous", "vous", "tout", "tous", "toute", "toutes",
+      "bien", "aussi", "entre", "sans", "comme", "mais", "vers", "chez", "sous",
+      "france", "paris", "selon", "fait", "deux", "trois", "quatre"
+    ]);
+
     for (const item of allItems) {
-      const clean = item.title.toLowerCase().replace(/[^a-z0-9à-ÿ]/gi, " ").slice(0, 45);
-      if (!seenTitles.has(clean)) {
-        seenTitles.add(clean);
-        deduplicated.push(item);
+      if (!item || !item.title) continue;
+      const titleLower = item.title.toLowerCase();
+      const clean = titleLower.replace(/[^a-z0-9à-ÿ]/gi, " ").slice(0, 45);
+
+      // Règle stricte anti-doublon Enfants Rouges
+      if (titleLower.includes("enfants rouges") || titleLower.includes("enfants-rouges")) {
+        if (hasSeenEnfantsRougesRss) continue;
+        hasSeenEnfantsRougesRss = true;
       }
+
+      if (seenTitles.has(clean)) continue;
+
+      // Déduplication par signature de sujet (mots clés significatifs)
+      const words = titleLower
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 4 && !STOP_WORDS_RSS.has(w));
+
+      if (words.length >= 3) {
+        const topicKey = words.slice(0, 3).sort().join("_");
+        if (seenTopicSignatures.has(topicKey)) {
+          continue; // Cet événement est déjà couvert par un autre média
+        }
+        seenTopicSignatures.add(topicKey);
+      }
+
+      seenTitles.add(clean);
+      deduplicated.push(item);
     }
 
     // Twitter-style breaking news ranking:
