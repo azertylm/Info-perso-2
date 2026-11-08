@@ -128,19 +128,10 @@ export interface NewsArticle {
   keyTakeaways?: string[];
   strategicAnalysis?: ArticleStrategicAnalysis;
 
-  // Repères temporels (situer l'événement dans le temps long)
-  reperes_temporels?: ReperesTemporelsItem[];
-
   // Intégration multimédia souveraine
   youtubeId?: string;
   youtubeUrl?: string;
   points_cles_video?: string[];
-}
-
-export interface ReperesTemporelsItem {
-  date: string;
-  titre: string;
-  description: string;
 }
 
 /**
@@ -351,3 +342,33 @@ export const AVAILABLE_MODELS: ModelConfig[] = [
     strength: "100% Hors-ligne & Confidentialité totale",
   },
 ];
+
+export interface VoiceProfile {
+  id: string;
+  name: string;
+  subtitle: string;
+  category: "archetype" | "celebrity" | "custom";
+  description: string;
+  avatarEmoji: string;
+  badgeText?: string;
+  gender: "female" | "male" | "neutral";
+  geminiVoiceName: "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck";
+  geminiStylePrompt: string;
+  googleCloudVoiceName: string;
+  pitchSemiTones: number;
+  speakingRateMultiplier: number;
+  raspyEffect: number; // 0.0 à 1.0 (Éraillure / grain rauque)
+  warmthBoost: number; // 0.0 à 1.0
+  isCustom?: boolean;
+  sampleAudioBase64?: string;
+  sampleAudioDuration?: number;
+  samplePhrase?: string;
+  createdAt?: number;
+  acousticAnalysis?: {
+    estimatedPitchHz?: number;
+    spectralRoughness?: number; // 0-1
+    cadenceWpm?: number;
+    recordedDurationSec?: number;
+    detectedTone?: string;
+  };
+}

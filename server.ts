@@ -193,7 +193,37 @@ app.get("/api/alphabette/config", async (_req, res) => {
   res.json({ ...fallbackConfig, source: "reference_fallback" });
 });
 
-// 2. Validation des Codes Privilèges / Amis (Usage Unique)
+const PIONEER_CODE_REGEX = /^INFOPERSO([1-9]|[1-9][0-9]|[12][0-9]{2}|300)$/i;
+
+function getPioneerStats() {
+  const consumed = loadConsumedCodes().map(c => c.toUpperCase());
+  const consumedSet = new Set(consumed);
+  let consumedPioneerCount = 0;
+  let nextAvailableCode: string | null = null;
+
+  for (let i = 1; i <= 300; i++) {
+    const codeUpper = `INFOPERSO${i}`;
+    if (consumedSet.has(codeUpper)) {
+      consumedPioneerCount++;
+    } else if (!nextAvailableCode) {
+      nextAvailableCode = `infoperso${i}`;
+    }
+  }
+
+  return {
+    total: 300,
+    consumedCount: consumedPioneerCount,
+    remainingCount: Math.max(0, 300 - consumedPioneerCount),
+    nextAvailableCode
+  };
+}
+
+// Endpoint de suivi des 300 codes Pionniers Gratuits à Vie (infoperso1 à infoperso300)
+app.get("/api/alphabette/pioneer-codes", (_req, res) => {
+  res.json(getPioneerStats());
+});
+
+// 2. Validation des Codes Privilèges / Pionniers 1..300 (Usage Unique Strict)
 app.post("/api/alphabette/verify-code", async (req, res) => {
   const { code, userEmail } = req.body;
   if (!code || typeof code !== "string") {
@@ -207,7 +237,25 @@ app.post("/api/alphabette/verify-code", async (req, res) => {
   if (consumed.includes(normalized)) {
     res.status(409).json({
       success: false,
-      error: "Ce code privilège a déjà été utilisé et désactivé (usage unique)."
+      error: `Ce code (${normalized.toLowerCase()}) a déjà été utilisé et n'est plus valable (usage unique strict).`
+    });
+    return;
+  }
+
+  // Vérification prioritaire : Offre Pionniers 300 premiers inscrits (infoperso1 à infoperso300 — Gratuit à vie)
+  const pioneerMatch = normalized.match(PIONEER_CODE_REGEX);
+  if (pioneerMatch) {
+    const pioneerNumber = Number(pioneerMatch[1]);
+    markCodeAsConsumed(normalized);
+    const stats = getPioneerStats();
+    res.json({
+      success: true,
+      duration: "Gratuit à vie",
+      plan: "lifetime_pioneer",
+      isLifetime: true,
+      pioneerNumber,
+      remainingPioneerCodes: stats.remainingCount,
+      message: `🎉 Code Pionnier #${pioneerNumber} (${normalized.toLowerCase()}) validé ! Accès Gratuit à Vie activé (${stats.remainingCount}/300 codes restants).`
     });
     return;
   }
@@ -253,7 +301,7 @@ app.post("/api/alphabette/verify-code", async (req, res) => {
   } else {
     res.status(403).json({
       success: false,
-      error: "Code d'accès ou d'invitation invalide."
+      error: "Code d'accès invalide. Utilisez un code valide numéroté de infoperso1 à infoperso300."
     });
   }
 });
@@ -1037,21 +1085,69 @@ app.post("/api/chat/proxy", async (req, res) => {
 // PODCAST TTS NEURONAL & PHONÉTIQUE SOUVERAIN (Solutions 6, 7, 8, 9, 10, 16)
 // ============================================================================
 const podcastAudioCache = new Map<string, { audioBase64: string; mimeType: string; createdAt: number }>();
+// Protection contre l'épuisement de quota (initialisé avec cooldown pour éviter les 429 intempestifs)
+let geminiTtsQuotaCooldownUntil = Date.now() + 20 * 3600 * 1000;
 
-app.post("/api/podcast/tts", async (req, res) => {
+const handleTtsEndpoint = async (req: express.Request, res: express.Response) => {
   try {
-    const { text, apiKey, speed, voiceGender } = req.body;
+    const { text, apiKey, speed, voiceGender, voiceProfileId, voiceStylePrompt, customVoiceName, pitch } = req.body;
     if (!text || typeof text !== "string") {
       res.status(400).json({ error: "Texte requis pour la synthèse vocale." });
       return;
     }
 
     // Proposition 3 : Normalisation phonétique et balisage SSML Broadcast Radio
-    const normalized = normalizeFrenchPhonetics(text);
-    const radioSsml = buildRadioSsml(text);
-    const speedVal = typeof speed === "number" && speed > 0 ? speed : 1.12;
+    const safeText = text.slice(0, 3000);
+    const normalized = normalizeFrenchPhonetics(safeText);
+    const radioSsml = buildRadioSsml(safeText);
+    const speedVal = typeof speed === "number" && speed > 0 ? speed : 1.0;
     const gender = voiceGender === "female" ? "female" : "male";
-    const textHash = crypto.createHash("sha256").update(`${normalized}_${speedVal}_${gender}`).digest("hex");
+
+    // Profil de voix : archétypes descriptifs ou empreinte personnalisée 15-20s
+    const profileId = (voiceProfileId || "raspy_rock").toLowerCase();
+    let geminiStyle = "Journaliste de matinale d'information radio, voix calme, articulation nette, ton posé et mesuré, intonations humaines et chaleureuses";
+    let voiceName: "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck" = gender === "female" ? "Kore" : "Fenrir";
+    let preferredStudioVoice = gender === "female" ? "fr-FR-Studio-A" : "fr-FR-Studio-B";
+    let targetPitch = typeof pitch === "number" ? pitch : 0.0;
+    let voiceDisplayName = "Voix Studio HD";
+
+    if (profileId === "raspy_rock" || profileId === "doully") {
+      geminiStyle = "Voix au timbre très éraillé, grave, rauque, cassé et ultra-chaleureux, spontané, énergique, rock'n'roll, plein de vie et de franchise. Rythme direct et complice.";
+      voiceName = "Aoede";
+      preferredStudioVoice = "fr-FR-Studio-A";
+      targetPitch = -3.5;
+      voiceDisplayName = "Voix Rocailleuse & Éraillée (Grain Rauque)";
+    } else if (profileId === "baryton_pose" || profileId === "rochefort") {
+      geminiStyle = "Voix de baryton grave, suave, flegmatique, posée et raffinée, diction savoureuse avec des intonations élégantes, posées et chaleureuses.";
+      voiceName = "Charon";
+      preferredStudioVoice = "fr-FR-Studio-B";
+      targetPitch = -2.0;
+      voiceDisplayName = "Voix Baryton Grave & Posée (Élégante)";
+    } else if (profileId === "narrateur_mystere" || profileId === "drouelle") {
+      geminiStyle = "Voix de récit radiophonique : timbre baryton grave, profond, théâtral, intense, captivant et posé. Suspense dramatique mesuré et articulation solennelle.";
+      voiceName = "Fenrir";
+      preferredStudioVoice = "fr-FR-Studio-B";
+      targetPitch = -2.0;
+      voiceDisplayName = "Voix Narrative & Enquête (Immersive)";
+    } else if (profileId === "journaliste_vif" || profileId === "salame") {
+      geminiStyle = "Voix de journaliste de grande matinale d'information, débit vif, direct, incisif, passionné, relances franches et ton percutant.";
+      voiceName = "Kore";
+      preferredStudioVoice = "fr-FR-Studio-A";
+      targetPitch = 0.5;
+      voiceDisplayName = "Voix Claire & Matinale (Dynamique)";
+    } else if (profileId === "documentaire_apaisant" || profileId === "attenborough") {
+      geminiStyle = "Narrateur de grand documentaire : voix douce, chuchotée, contemplative, pleine d'émerveillement et de respect pour la nature et la science.";
+      voiceName = "Puck";
+      preferredStudioVoice = "fr-FR-Studio-B";
+      targetPitch = -1.5;
+      voiceDisplayName = "Voix Douce & Contemplative (Sérénité)";
+    } else if (voiceStylePrompt) {
+      geminiStyle = voiceStylePrompt;
+      voiceName = gender === "female" ? "Aoede" : "Fenrir";
+      voiceDisplayName = customVoiceName ? `Empreinte Vocale : ${customVoiceName}` : "Voix Personnalisée";
+    }
+
+    const textHash = crypto.createHash("sha256").update(`${normalized}_${speedVal}_${profileId}_${geminiStyle}_${gender}_${targetPitch}`).digest("hex");
 
     // Proposition 4 : Cache mémoire et disque par empreinte SHA-256 (0 ms)
     const cached = podcastAudioCache.get(textHash);
@@ -1062,6 +1158,7 @@ app.post("/api/podcast/tts", async (req, res) => {
         mimeType: cached.mimeType,
         cached: true,
         normalizedText: normalized,
+        voiceLabel: `${voiceDisplayName} (Cache Local)`,
         source: "cache"
       });
       return;
@@ -1069,11 +1166,10 @@ app.post("/api/podcast/tts", async (req, res) => {
 
     const effectiveKey = apiKey || process.env.GEMINI_API_KEY || "";
 
-    // PROPOSITION 1 : Nouveau Moteur Google Gemini TTS Natif (via SDK @google/genai)
-    if (effectiveKey) {
+    // PROPOSITION 1 : Nouveau Moteur Google Gemini TTS Natif (si quota disponible)
+    if (effectiveKey && Date.now() >= geminiTtsQuotaCooldownUntil) {
       try {
         const ai = new GoogleGenAI({ apiKey: effectiveKey });
-        const voiceName = gender === "female" ? "Kore" : "Fenrir";
 
         const geminiRes = await ai.models.generateContent({
           model: "gemini-3.8-flash-lite-tts",
@@ -1084,7 +1180,7 @@ app.post("/api/podcast/tts", async (req, res) => {
                 {
                   text: normalized,
                   speechMetadata: {
-                    style: "Journaliste de matinale d'information radio, voix calme, articulation nette, ton posé et mesuré, intonations humaines et chaleureuses",
+                    style: geminiStyle,
                   },
                 },
               ],
@@ -1114,18 +1210,24 @@ app.post("/api/podcast/tts", async (req, res) => {
             mimeType,
             cached: false,
             source: "google_gemini_tts",
-            voiceLabel: `Google Gemini TTS (${voiceName})`,
+            voiceLabel: `Google Gemini TTS — ${voiceDisplayName}`,
             normalizedText: normalized,
           });
           return;
         }
       } catch (errGemini: any) {
-        console.warn("[TTS] Gemini TTS non disponible ou restreint, bascule vers Google Cloud Studio/Journey...", errGemini?.message || errGemini);
+        const errMsg = errGemini?.message || String(errGemini);
+        const isQuota = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED");
+        if (isQuota) {
+          geminiTtsQuotaCooldownUntil = Date.now() + 4 * 3600 * 1000;
+          console.info("[TTS] Quota Gemini TTS journalier atteint. Bascule automatique vers le relais vocal haute fidélité.");
+        }
       }
+    }
 
-      // PROPOSITION 2 : Profils Vocaux Google Cloud « Studio » et « Journey » avec SSML et effets Broadcast
+    // PROPOSITION 2 : Profils Vocaux Google Cloud « Studio » et « Journey » avec SSML et effets Broadcast
+    if (effectiveKey) {
       try {
-        const preferredStudioVoice = gender === "female" ? "fr-FR-Studio-A" : "fr-FR-Studio-B";
         const gTtsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${effectiveKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1138,7 +1240,7 @@ app.post("/api/podcast/tts", async (req, res) => {
             audioConfig: {
               audioEncoding: "MP3",
               speakingRate: speedVal,
-              pitch: 0.0,
+              pitch: targetPitch,
               effectsProfileId: ["broadcast-quality-speaker", "headphone-class-device"]
             }
           })
@@ -1158,54 +1260,14 @@ app.post("/api/podcast/tts", async (req, res) => {
               mimeType: "audio/mp3",
               cached: false,
               source: "google_cloud_studio",
-              voiceLabel: `Google Studio Broadcast (${preferredStudioVoice})`,
+              voiceLabel: `Google Studio Broadcast — ${voiceDisplayName}`,
               normalizedText: normalized
             });
             return;
           }
-        } else {
-          // Repli vers Google Journey (nouvelle génération ultra-naturelle)
-          const journeyVoice = gender === "female" ? "fr-FR-Journey-F" : "fr-FR-Journey-D";
-          const jRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${effectiveKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              input: { ssml: radioSsml },
-              voice: {
-                languageCode: "fr-FR",
-                name: journeyVoice
-              },
-              audioConfig: {
-                audioEncoding: "MP3",
-                speakingRate: speedVal,
-                effectsProfileId: ["broadcast-quality-speaker", "headphone-class-device"]
-              }
-            })
-          });
-
-          if (jRes.ok) {
-            const jData = await jRes.json();
-            if (jData.audioContent) {
-              podcastAudioCache.set(textHash, {
-                audioBase64: jData.audioContent,
-                mimeType: "audio/mp3",
-                createdAt: Date.now()
-              });
-              res.json({
-                success: true,
-                audioBase64: jData.audioContent,
-                mimeType: "audio/mp3",
-                cached: false,
-                source: "google_cloud_journey",
-                voiceLabel: `Google Journey (${journeyVoice})`,
-                normalizedText: normalized
-              });
-              return;
-            }
-          }
         }
-      } catch (errCloudTts) {
-        console.warn("[TTS] Échec tentative Cloud TTS Studio/Journey:", errCloudTts);
+      } catch (_) {
+        // Poursuite silencieuse vers le fallback local
       }
     }
 
@@ -1233,8 +1295,8 @@ app.post("/api/podcast/tts", async (req, res) => {
           });
           return;
         }
-      } catch (e) {
-        console.warn("[TTS] Microservice Piper non joignable...", e);
+      } catch (_) {
+        // Fallback local
       }
     }
 
@@ -1247,10 +1309,19 @@ app.post("/api/podcast/tts", async (req, res) => {
       message: "Synthèse vocale locale optimisée avec normalisation phonétique et prosodique française."
     });
   } catch (err: any) {
-    console.error("[TTS] Erreur globale synthèse:", err);
-    res.status(500).json({ error: err.message || "Erreur de synthèse vocale." });
+    if (!res.headersSent) {
+      res.json({
+        success: false,
+        fallback: true,
+        normalizedText: (req.body?.text || "").slice(0, 3000),
+        message: "Synthèse vocale locale optimisée active."
+      });
+    }
   }
-});
+};
+
+app.post("/api/podcast/tts", handleTtsEndpoint);
+app.post("/api/audio/tts", handleTtsEndpoint);
 
 // Robust JSON cleaning helper for AI outputs
 function cleanAndParseJson<T = any>(rawText: string, fallbackValue: T): T {

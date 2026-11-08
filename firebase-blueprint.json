@@ -145,6 +145,30 @@
           "type": "boolean",
           "description": "Whether the author is highlighted with 5+ top-rated articles"
         },
+        "aiFactualConsistency": {
+          "type": "number",
+          "description": "Factual consistency rating (0 to 100)"
+        },
+        "aiJournalisticStyle": {
+          "type": "number",
+          "description": "Journalistic style rating (0 to 100)"
+        },
+        "aiRelevanceToCurrentEvents": {
+          "type": "number",
+          "description": "Relevance to current news rating (0 to 100)"
+        },
+        "aiKeyStrengths": {
+          "type": "array",
+          "description": "List of key article strengths evaluated by AI"
+        },
+        "aiImprovements": {
+          "type": "array",
+          "description": "List of suggested improvements evaluated by AI"
+        },
+        "aiCertifiedBadge": {
+          "type": "string",
+          "description": "Honor badge awarded by AI review"
+        },
         "createdAt": {
           "type": "string",
           "description": "Server timestamp of creation"
@@ -222,6 +246,10 @@
         "isEasyMode": {
           "type": "boolean",
           "description": "Accessibility high contrast and large font toggle"
+        },
+        "easyModeLevel": {
+          "type": "integer",
+          "description": "Accessibility simplified mode scale (0 to 5)"
         },
         "savedArticleIds": {
           "type": "array",

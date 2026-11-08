@@ -114,10 +114,15 @@ export default function AlphabetteNavbar({
             <span
               onClick={onOpenKeyring}
               className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold cursor-pointer hover:bg-emerald-500/20"
-              title="Abonnement Actif : Requêtes illimitées sur votre clé API (BYOK)"
+              title="Accès Actif : Requêtes illimitées"
             >
               <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              <span>Abonné (Illimité BYOK)</span>
+              <span>
+                {localStorage.getItem("alphabette_user_plan") === "lifetime_pioneer" ||
+                localStorage.getItem("alphabette_lifetime_pioneer") === "true"
+                  ? "Pionnier Gratuit à Vie"
+                  : "Abonné (Illimité BYOK)"}
+              </span>
             </span>
           ) : (
             <div className="flex items-center gap-1.5">

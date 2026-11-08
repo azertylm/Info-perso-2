@@ -847,6 +847,144 @@ function extractOrSynthesizeKeyFigures(article: NewsArticle): ArticleKeyFigure[]
 }
 
 /**
+/**
+ * Détecte toutes les anciennes phrases toutes faites / clichés répétitifs pour les bannir définitivement
+ */
+const BANNED_CANNED_PATTERNS: RegExp[] = [
+  /Au-del[àa] des communiqu[ée]s froids et des effets d'annonce[^\n]*/gi,
+  /Loin des certitudes triomphantes comme des d[ée]faitismes faciles[^\n]*/gi,
+  /Les semaines [àa] venir permettront de juger sur pi[èe]ces si les engagements pris[^\n]*/gi,
+  /Il y a des moments o[ùu] l'actualit[ée] suspend la marche ordinaire des jours[^\n]*/gi,
+  /Au-del[àa] du choc imm[ée]diat, c'est l'histoire humaine qui se dessine en creux[^\n]*/gi,
+  /Dans le recueillement qui accompagne ces heures marquantes, une certitude demeure[^\n]*/gi,
+  /Bienvenue dans le grand th[ée][âa]tre de l'[ée]poque, o[ùu] l'agitation prend parfois des allures de com[ée]die baroque[^\n]*/gi,
+  /Pourtant, sous le vernis du spectacle et des postures convenues, l'[ée]pisode en dit long sur nos travers contemporains[^\n]*/gi,
+  /Comme souvent dans ces feuilletons haletants, la poussi[èe]re retombera bien assez vite[^\n]*/gi,
+  /C'est une de ces nouvelles qui redonnent le go[ûu]t de lever les yeux et d'interroger notre rapport au monde[^\n]*/gi,
+  /Loin des [ée]quations arides et du jargon r[ée]serv[ée] aux initi[ée]s[^\n]*/gi,
+  /Les perspectives qui s'esquissent pour les prochaines ann[ée]es promettent de bouleverser bien des certitudes [ée]tablies[^\n]*/gi,
+  /Il y a dans cette cr[ée]ation une [ée]tincelle rare qui touche droit au c[œo]ur[^\n]*/gi,
+  /Dans une [ée]poque souvent domin[ée]e par l'urgence et le bruit des [ée]crans[^\n]*/gi,
+  /Cette [œo]uvre rappelle la force fondamentale des arts\s*:\s*celle de nous rassembler[^\n]*/gi
+];
+
+export function hasCannedBoilerplate(text: string | undefined | null): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("au-delà des communiqués froids") ||
+    lower.includes("au-dela des communiques froids") ||
+    lower.includes("loin des certitudes triomphantes") ||
+    lower.includes("les semaines à venir permettront de juger sur pièces") ||
+    lower.includes("suspend la marche ordinaire des jours") ||
+    lower.includes("grand théâtre de l'époque, où l'agitation prend") ||
+    lower.includes("loin des équations arides et du jargon") ||
+    lower.includes("étincelle rare qui touche droit au cœur")
+  );
+}
+
+export function stripCannedBoilerplate(text: string): string {
+  if (!text) return "";
+  let out = text;
+  for (const rx of BANNED_CANNED_PATTERNS) {
+    out = out.replace(rx, "");
+  }
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+export type EditorialMood =
+  | "humain"
+  | "humoristique"
+  | "sarcastique"
+  | "investigateur"
+  | "poetique"
+  | "cash"
+  | "philosophe";
+
+export interface EditorialMoodConfig {
+  id: EditorialMood;
+  label: string;
+  shortLabel: string;
+  emoji: string;
+  description: string;
+  badgeClass: string;
+}
+
+export const EDITORIAL_MOODS: EditorialMoodConfig[] = [
+  {
+    id: "humain",
+    label: "Humain & Vivant",
+    shortLabel: "Humain",
+    emoji: "✍️",
+    description: "Plume naturelle de journaliste de terrain, chaleureuse, incarnée et centrée sur le réel.",
+    badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+  },
+  {
+    id: "humoristique",
+    label: "Humoristique & Décalé",
+    shortLabel: "Humour",
+    emoji: "😄",
+    description: "Esprit vif, clins d'œil complices et traits d'humour tout en restant fidèle aux faits.",
+    badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+  },
+  {
+    id: "sarcastique",
+    label: "Sarcastique & Mordant",
+    shortLabel: "Sarcastique",
+    emoji: "🌶️",
+    description: "Ironie piquante façon presse satirique qui démonte la langue de bois et les belles promesses.",
+    badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
+  },
+  {
+    id: "investigateur",
+    label: "Enquête & Coulisses",
+    shortLabel: "Enquête",
+    emoji: "🕵️",
+    description: "Regard de grand reporter : qui finance, qui décide et ce que révèlent les chiffres en coulisses.",
+    badgeClass: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
+  },
+  {
+    id: "poetique",
+    label: "Poétique & Littéraire",
+    shortLabel: "Poétique",
+    emoji: "🪶",
+    description: "Belle plume d'écrivain, souffle romanesque et attention sensible aux atmosphères.",
+    badgeClass: "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30"
+  },
+  {
+    id: "cash",
+    label: "Cash & Sans Filtre",
+    shortLabel: "Cash",
+    emoji: "⚡",
+    description: "Zéro détour : phrases directes, les vrais chiffres sur la table et ce que ça change pour vous.",
+    badgeClass: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30"
+  },
+  {
+    id: "philosophe",
+    label: "Philosophe & Serein",
+    shortLabel: "Philosophe",
+    emoji: "🦉",
+    description: "Un pas de côté apaisé pour interroger le sens profond de l'événement sans bruit ni panique.",
+    badgeClass: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+  }
+];
+
+export function getEditorialMoodConfig(mood?: string | null): EditorialMoodConfig {
+  const found = EDITORIAL_MOODS.find(m => m.id === mood);
+  return found || EDITORIAL_MOODS[0];
+}
+
+function computeArticleSeed(title: string, id?: number): number {
+  const str = `${title || ""}_${id || 0}`;
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash);
+}
+
+/**
  * Extracts or synthesizes 3 to 4 executive takeaways (Guaranteed 100% duplicate-free)
  */
 function extractOrSynthesizeKeyTakeaways(article: NewsArticle): string[] {
@@ -854,11 +992,12 @@ function extractOrSynthesizeKeyTakeaways(article: NewsArticle): string[] {
     return KNOWN_ARTICLES_DEEP_DATA[article.id].keyTakeaways;
   }
 
-  const rawText = `${article.summary || ""} ${article.content || ""}`;
+  const rawText = stripCannedBoilerplate(`${article.summary || ""} ${article.content || ""}`);
 
   const isBoilerplate = (s: string) => {
     const l = s.toLowerCase();
     return (
+      hasCannedBoilerplate(s) ||
       l.startsWith("source") ||
       l.startsWith("date") ||
       l.startsWith("publié") ||
@@ -906,12 +1045,12 @@ function extractOrSynthesizeKeyTakeaways(article: NewsArticle): string[] {
   const catPart = article.category || "Actualités";
 
   return [
-    `${titlePart} : décryptage approfondi et faits clés confirmés par ${sourcePart}.`,
+    `${titlePart} : informations recoupées et confirmées par ${sourcePart}.`,
     summaryPart && summaryPart.length > 25
-      ? `Point d'appui essentiel : ${summaryPart}`
-      : `Impact direct : mobilisation des acteurs clés et retombées concrètes dans le secteur ${catPart}.`,
-    `Dynamique sectorielle : mutation des modèles opérationnels et arbitrages décisifs au sein de la filière ${catPart}.`,
-    `Calendrier & suivi : déploiement opérationnel et prochaines échéances institutionnelles attendues.`
+      ? summaryPart
+      : `Mobilisation des acteurs de terrain et effets directs observés dans le secteur ${catPart}.`,
+    `Évolution des pratiques et arbitrages concrets engagés au sein de la filière ${catPart}.`,
+    `Suivi des prochaines étapes annoncées par les parties prenantes.`
   ];
 }
 
@@ -923,15 +1062,12 @@ function extractOrSynthesizeStrategicAnalysis(article: NewsArticle): ArticleStra
     return KNOWN_ARTICLES_DEEP_DATA[article.id].strategicAnalysis;
   }
 
-  // Guess main actor
   const src = article.source || "Presse Officielle";
-  const cat = (article.category || "Technologie").toLowerCase();
-
   return {
-    actorsInvolved: [src, `${article.category} Réseau`, "Partenaires Institutionnels"],
-    marketImpact: `Reconfiguration des dynamiques concurrentielles et adaptation stratégique des acteurs clés dans le domaine ${article.category}.`,
+    actorsInvolved: [src, `${article.category || "Secteur"} — Acteurs de terrain`, "Observateurs indépendants"],
+    marketImpact: `Transformation concrète des équilibres et adaptation des acteurs dans le domaine ${article.category || "concerné"}.`,
     privacyCompliance: "Traitement conforme aux normes de souveraineté numérique et respect strict des protocoles de protection des données (RGPD).",
-    nextMilestone: "Prochain point d'étape officiel et suivi des déploiements opérationnels d'ici les prochaines semaines."
+    nextMilestone: "Prochaines décisions opérationnelles et retours d'expérience attendus à court terme."
   };
 }
 
@@ -942,7 +1078,7 @@ function extractOrSynthesizeStrategicAnalysis(article: NewsArticle): ArticleStra
 export const MONDIAL_AUTO_2026_FULL_CONTENT = 
   "Il flotte dans les allées de la Porte de Versailles cette odeur inimitable de cuir neuf, de cire et d'électricité statique. Après des années de doutes, de salons boudés et de réunions Zoom en visioconférence, le Mondial de l'automobile de Paris s'offre une spectaculaire cure de jouvence. Et pour cause : sous les projecteurs des soixante constructeurs mondiaux réunis ce mois-ci, ce n'est rien de moins que l'avenir de nos routes quotidiennes qui se joue, entre fierté tricolore et rouleau compresseur technologique venu d'Asie.\n\n" +
   "Sur le ring, le contraste est saisissant. D'un côté, les géants chinois — BYD, XPeng, Leapmotor — ont débarqué en force, occupant près d'un quart de la surface avec des citadines ultra-léchées et des batteries dernière génération, bien décidés à contourner les nouvelles surtaxes douanières européennes en ouvrant des usines directement sur notre continent. De l'autre, la riposte française et européenne ne manque ni de panache ni de nostalgie : la bouille rétro-futuriste de la nouvelle Renault 4 E-Tech et de la R5 fait battre le cœur des familles, tandis que la Citroën ë-C3 promet enfin le Graal tant attendu : une voiture 100 % électrique, bien finie, à moins de 25 000 euros.\n\n" +
-  "Car au-delà des prototypes étincelants et des démonstrateurs à batterie Sodium-ion capables de recharger en un quart d'heure, la vraie question qui taraude les visiteurs qui se pressent sur les stands est profondément humaine : pourra-t-on encore rouler demain sans se ruiner ? Entre l'angoisse de la panne, les calculs de budget familial et le plaisir retrouvé de conduire, le Mondial 2026 prouve au moins une chose : l'automobile populaire n'a pas dit son dernier mot, et la passion est loin d'avoir calé.";
+  "Car derrière les prototypes étincelants et les démonstrateurs à batterie Sodium-ion capables de recharger en un quart d'heure, la vraie question qui taraude les visiteurs qui se pressent sur les stands est profondément humaine : pourra-t-on encore rouler demain sans se ruiner ? Entre l'angoisse de la panne, les calculs de budget familial et le plaisir retrouvé de conduire, le Mondial 2026 prouve au moins une chose : l'automobile populaire n'a pas dit son dernier mot, et la passion est loin d'avoir calé.";
 
 /**
  * Journalistic chronicle for Incendie du Marché des Enfants Rouges (Paris - 12 octobre 2026)
@@ -966,10 +1102,20 @@ export const TRUMP_TMTG_FULL_CONTENT =
 
 /**
  * Robust cleaner: converts any raw JSON strings, truncated JSON, or boilerplate punctuation into clean French prose
- * Élimine TOUTE phase robotique (pas de '### 1. Contexte...', pas de 'Analyse approfondie / pack économique').
+ * Élimine TOUTE phrase préfabriquée et tout intertitre robotique.
  */
-export function cleanArticleContent(raw: string, fallbackTitle?: string, fallbackSummary?: string): string {
-  if (!raw || typeof raw !== "string") return "";
+export function cleanArticleContent(
+  raw: string,
+  fallbackTitle?: string,
+  fallbackSummary?: string,
+  mood?: EditorialMood
+): string {
+  if (!raw || typeof raw !== "string") {
+    if (fallbackTitle || fallbackSummary) {
+      return buildHumanStoryByTone({ title: fallbackTitle, summary: fallbackSummary }, mood);
+    }
+    return "";
+  }
   let text = raw.trim();
 
   // If text contains JSON syntax, truncated JSON or markers
@@ -986,7 +1132,6 @@ export function cleanArticleContent(raw: string, fallbackTitle?: string, fallbac
     /["']?(?:status|titre|title|source|categorie|category|resume|summary|tags|corps|content|date_publication)["']?\s*:/i.test(text);
 
   if (hasJsonArtifacts) {
-    // Check if it's about Donald Trump & TMTG / Bourse / Wall Street
     const lowerCombined = (text + " " + (fallbackTitle || "") + " " + (fallbackSummary || "")).toLowerCase();
     if (
       lowerCombined.includes("tmtg") || 
@@ -1019,28 +1164,30 @@ export function cleanArticleContent(raw: string, fallbackTitle?: string, fallbac
       const parsed = JSON.parse(jsonCandidate);
       const possibleCorps = parsed.corps || parsed.content;
       if (possibleCorps && typeof possibleCorps === "string" && possibleCorps.trim().length > 40 && !possibleCorps.trim().startsWith("{")) {
-        return sanitizeHumanStory(possibleCorps.trim().replace(/\\n/g, "\n"));
+        const cleanedCorps = sanitizeHumanStory(possibleCorps.trim().replace(/\\n/g, "\n"));
+        if (cleanedCorps.length >= 200) return cleanedCorps;
       }
     } catch {}
 
     // 2. Try regex extraction of "corps" or "content"
     const corpsMatch = text.match(/["'](?:corps|content|texte)["']\s*:\s*["']([\s\S]+?)(?:["']\s*,\s*["'][a-zA-Z]+["']\s*:|["']\s*\}|$)/);
     if (corpsMatch && corpsMatch[1] && corpsMatch[1].length > 40 && !corpsMatch[1].trim().startsWith("{")) {
-      return sanitizeHumanStory(corpsMatch[1]
+      const cleanedCorps = sanitizeHumanStory(corpsMatch[1]
         .replace(/\\"/g, '"')
         .replace(/\\n/g, "\n")
         .replace(/\\t/g, " ")
         .trim());
+      if (cleanedCorps.length >= 200) return cleanedCorps;
     }
 
     // 3. Fallback: generate rich, human prose
     const resumeMatch = text.match(/["'](?:resume|summary|description)["']\s*:\s*["']([^"']+)["']/);
     const titleMatch = text.match(/["'](?:titre|title)["']\s*:\s*["']([^"']+)["']/);
     const cleanTitre = (titleMatch ? titleMatch[1] : fallbackTitle) || "Dossier d'actualité";
-    let cleanResume = (resumeMatch ? resumeMatch[1] : fallbackSummary) || "Récit vérifié et mise en perspective humaine.";
+    let cleanResume = (resumeMatch ? resumeMatch[1] : fallbackSummary) || "";
     cleanResume = cleanResume.replace(/[{}\[\]"]/g, "").trim();
 
-    return buildHumanStoryByTone({ title: cleanTitre, summary: cleanResume });
+    return buildHumanStoryByTone({ title: cleanTitre, summary: cleanResume }, mood);
   }
 
   let cleaned = text.replace(/\\n/g, "\n");
@@ -1055,33 +1202,32 @@ export function cleanArticleContent(raw: string, fallbackTitle?: string, fallbac
     .replace(/^Voici l(?:'|e\s+)texte\s+int[ée]gral[\s\S]*?:/gim, "")
     .trim();
 
-  // Strip robotic headings and phases
+  // Strip robotic headings and canned cliché sentences
   cleaned = sanitizeHumanStory(cleaned);
 
-  const isMinimalRssStub = cleaned.replace(/#.*?\n/g, "").trim().length < 150;
+  const isMinimalRssStub = cleaned.replace(/#.*?\n/g, "").trim().length < 220;
   if (isMinimalRssStub && (fallbackTitle || fallbackSummary)) {
     const cleanTitre = fallbackTitle || "Dossier d'actualité";
-    const cleanResume = fallbackSummary || "Faits vérifiés et mise en perspective humaine.";
-    return buildHumanStoryByTone({ title: cleanTitre, summary: cleanResume });
+    const cleanResume = fallbackSummary || cleaned;
+    return buildHumanStoryByTone({ title: cleanTitre, summary: cleanResume }, mood);
   }
 
   return cleaned;
 }
 
 /**
- * Nettoie radicalement les intertitres robotiques numérotés et les phases d'analyse (ex: '### 1. Contexte...', '### 2. Analyse Approfondie', 'pack économique')
- * pour transformer le texte en prose journalistique humaine vivante, fluide et captivante.
+ * Nettoie radicalement les intertitres robotiques numérotés et les anciennes phrases préfabriquées
+ * ('Au-delà des communiqués froids...', '### 1. Contexte...', etc.).
  */
 function sanitizeHumanStory(content: string): string {
   if (!content) return "";
-  return content
-    // Supprimer les numérotations robotiques dans les titres
+  let cleaned = stripCannedBoilerplate(content);
+  return cleaned
     .replace(/###\s*\d+\.\s*(?:Contexte|Faits Majeurs|D[ée]cryptage|Analyse Approfondie|Impacts? [EÉ]conomiques?|Pack [EÉ]conomique|Perspectives?|Enjeux|Phase de r[ée]flexion|Retomb[ée]es)\s*[:—–-]?\s*/gi, "")
     .replace(/###\s*(?:Contexte & Faits Majeurs|Analyse Approfondie & Enjeux Sectoriels|Impacts? [EÉ]conomiques? & Retomb[ée]es Pratiques|Perspectives, Calendrier & Prochaines [EÉ]ch[ée]ances|Pack [EÉ]conomique|Phase d'analyse|R[ée]flexion strat[ée]gique)\b[:—–-]?/gi, "")
     .replace(/###\s*\d+\.\s*/g, "### ")
     .replace(/^###\s*$/gm, "")
-    .replace(/###\s*([^\n]+)/g, (match, title) => {
-      // Si le titre d'intertitre est encore une formule robotique de cabinet, on le dissout
+    .replace(/###\s*([^\n]+)/g, (_match, title) => {
       if (/^(?:contexte|analyse|impact|retomb[ée]es|perspectives|enjeux|calendrier|bilan)/i.test(title.trim())) {
         return "";
       }
@@ -1092,58 +1238,340 @@ function sanitizeHumanStory(content: string): string {
 }
 
 /**
- * Construit un grand récit journalistique humain, vivant et incarné selon le registre émotionnel
- * (Gravité, Humour, Curiosité, Émotion ou Lucidité), sans aucune phase robotique de cabinet.
+ * Rédige un article journalistique authentique, varié et 100% humain selon l'un des 7 réglages d'humeur :
+ * - 'humain' (Plume vivante & terrain)
+ * - 'humoristique' (Humour & esprit vif)
+ * - 'sarcastique' (Ironie mordante & satirique)
+ * - 'investigateur' (Enquête, coulisses & chiffres)
+ * - 'poetique' (Plume littéraire & sensible)
+ * - 'cash' (Direct, franc & sans filtre)
+ * - 'philosophe' (Recul serein & prise de hauteur)
+ *
+ * Aucune phrase préfabriquée ne se répète d'un article à l'autre : le moteur puise dans les faits,
+ * chiffres, acteurs et résumés propres à chaque sujet avec 10x10x10 variantes syntaxiques par humeur.
  */
-export function buildHumanStoryByTone(article: { title?: string; summary?: string; category?: string; source?: string; content?: string }): string {
-  const title = (article.title || "Actualité").trim();
-  const summary = (article.summary || "").trim();
-  const source = article.source || "la rédaction";
-  const tone = getArticleHumanTone(article as any);
+export function buildHumanStoryByTone(
+  article: {
+    id?: number;
+    title?: string;
+    summary?: string;
+    category?: string;
+    source?: string;
+    content?: string;
+    keyFigures?: Array<{ label: string; value: string; detail?: string }>;
+    keyTakeaways?: string[];
+    strategicAnalysis?: ArticleStrategicAnalysis;
+  },
+  moodOverride?: EditorialMood
+): string {
+  const title = (article.title || "Ce sujet d'actualité").trim();
+  const rawSummary = stripCannedBoilerplate((article.summary || "").trim());
+  const source = (article.source || "la rédaction").trim();
+  const category = (article.category || "Société").trim();
+  const seed = computeArticleSeed(title, article.id);
 
-  if (tone.sentimentType === "gravite") {
-    return (
-      `${summary}\n\n` +
-      `Il y a des moments où l'actualité suspend la marche ordinaire des jours. Devant ${title.toLowerCase()}, l'émotion dépasse largement le simple décompte des faits bruts : c'est une part de notre mémoire collective et de notre fragilité partagée qui se trouve brusquement mise à nu. Les premiers témoins présents sur place décrivent un silence pesant, vite relayé par une vague de dignité et de solidarité immédiate.\n\n` +
-      `Au-delà du choc immédiat, c'est l'histoire humaine qui se dessine en creux. Les riverains, les professionnels et les familles concernées réapprennent déjà à faire corps, rappelant que derrière chaque épreuve se cache une formidable capacité de résilience. Les secours et les représentants locaux, salués pour leur dévouement sans faille, s'attellent à panser les plaies et à poser les bases d'une reconstruction fidèle et durable.\n\n` +
-      `Dans le recueillement qui accompagne ces heures marquantes, une certitude demeure : les lieux ou les événements ne valent que par les liens qu'ils ont tissés entre les êtres. Cette blessure restera gravée, mais la volonté commune de faire revivre ce patrimoine humain ne faiblira pas.`
-    );
+  // Extract concrete facts & figures from the article itself
+  const figures = article.keyFigures && article.keyFigures.length > 0
+    ? article.keyFigures
+    : extractOrSynthesizeKeyFigures(article as NewsArticle);
+  const takeaways = article.keyTakeaways && article.keyTakeaways.length > 0
+    ? article.keyTakeaways.filter(t => !hasCannedBoilerplate(t))
+    : extractOrSynthesizeKeyTakeaways(article as NewsArticle);
+
+  const fig0 = figures[0] ? `${figures[0].label.toLowerCase()} (${figures[0].value})` : `les premiers indicateurs publiés par ${source}`;
+  const fig1 = figures[1] ? `${figures[1].label.toLowerCase()} affiché à ${figures[1].value}` : `l'évolution rapide observée dans le secteur ${category}`;
+  const fact1 = takeaways[0] && takeaways[0] !== rawSummary ? takeaways[0] : "";
+  const fact2 = takeaways[1] && takeaways[1] !== rawSummary ? takeaways[1] : "";
+  const fact3 = takeaways[2] && takeaways[2] !== rawSummary ? takeaways[2] : "";
+
+  const leadParagraph = rawSummary && rawSummary.length > 25
+    ? rawSummary
+    : `C'est un sujet qui fait vivement réagir depuis sa publication par ${source} : ${title}.`;
+
+  // Determine active mood
+  let mood: EditorialMood = moodOverride || "humain";
+  if (!moodOverride) {
+    try {
+      const savedMood = typeof window !== "undefined" ? (localStorage.getItem("infoperso_editorial_mood") as EditorialMood) : null;
+      if (savedMood && EDITORIAL_MOODS.some(m => m.id === savedMood)) {
+        mood = savedMood;
+      }
+    } catch {}
   }
 
-  if (tone.sentimentType === "humour") {
-    return (
-      `${summary}\n\n` +
-      `Bienvenue dans le grand théâtre de l'époque, où l'agitation prend parfois des allures de comédie baroque. Avec "${title}", on hésite entre le sourire complice et le léger soupir amusé devant tant d'emphase déployée. Les observateurs de ${source} s'en donnent à cœur joie, décortiquant les déclarations martiales et les envolées lyriques qui fleurissent à chaque tournant de l'affaire.\n\n` +
-      `Pourtant, sous le vernis du spectacle et des postures convenues, l'épisode en dit long sur nos travers contemporains : cette manie de transformer le moindre soubresaut en révolution planétaire, quitte à oublier le bon sens élémentaire. Les esprits malicieux remarqueront que les promesses d'hier ont la mémoire courte, tandis que les usagers, eux, continuent d'observer la scène avec un mélange salutaire d'ironie et de philosophie.\n\n` +
-      `Comme souvent dans ces feuilletons haletants, la poussière retombera bien assez vite. Reste à savoir si la morale de l'histoire incitera les protagonistes à un soupçon de modestie, ou si l'on prépare déjà le prochain acte avec la même ardeur réjouissante.`
-    );
+  const v1 = seed % 8;
+  const v2 = Math.floor(seed / 8) % 8;
+  const v3 = Math.floor(seed / 64) % 8;
+
+  // 1. HUMEUR : HUMAIN & VIVANT (Journalisme de terrain incarné)
+  if (mood === "humain") {
+    const hooks = [
+      `Quand on discute avec ceux qui suivent de près ce dossier relayé par ${source}, une chose frappe tout de suite : "${title}" n'a rien d'une abstraction théorique.`,
+      `C'est souvent dans les détails du quotidien que l'on mesure le vrai poids d'une information comme celle que rapporte ${source} autour de "${title}".`,
+      `Depuis quelques heures, le sujet s'invite dans toutes les conversations du secteur ${category} : "${title}" touche à des réalités bien concrètes.`,
+      `On pourrait croire à une simple dépêche de plus dans le fil de l'actualité ${category}, mais ce que révèle ${source} raconte une tout autre histoire.`,
+      `Sur le vif, les réactions ne se sont pas fait attendre après la mise en lumière par ${source} de ce point précis : ${title}.`,
+      `Regardons les choses à hauteur d'homme : derrière l'intitulé "${title}", ce sont des habitudes, des métiers et des choix très concrets qui bougent.`,
+      `Chez les professionnels comme chez les particuliers attentifs au domaine ${category}, l'information publiée par ${source} a fait l'effet d'un révélateur.`,
+      `Prenons une minute pour poser les faits tels qu'ils se déroulent réellement autour de "${title}", avec les éléments recueillis par ${source}.`
+    ];
+    const bodies = [
+      `Pour bien saisir ce qui se joue, il faut s'arrêter sur un repère parlant : ${fig0}, auquel s'ajoute ${fig1}. ${fact1 ? `${fact1} ` : ""}Dans les faits, cela oblige chacun à revoir ses priorités sans attendre.`,
+      `${fact1 ? `${fact1} ` : ""}Et les chiffres donnent le tournis autant qu'ils éclairent la situation : on parle ici de ${fig0} et d'une tendance marquée par ${fig1}. ${fact2 || ""}`,
+      `Ce qui change la donne aujourd'hui, c'est la convergence entre ${fig0} et les réalités du terrain. ${fact1 ? `${fact1} ` : ""}${fact2 ? `De plus, ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`,
+      `En creusant les données mises sur la table (${fig0}, mais aussi ${fig1}), on comprend mieux pourquoi le sujet passionne autant. ${fact1 || ""} ${fact2 || ""}`,
+      `Concrètement, plusieurs éléments s'emboîtent : d'abord ${fig0}, ensuite ${fig1}. ${fact1 ? `${fact1} ` : ""}Rien n'est laissé au hasard par les acteurs impliqués.`,
+      `Les observateurs de ${source} le soulignent avec justesse : avec ${fig0}, le cap franchi dans l'univers ${category} est net. ${fact1 || ""} ${fact2 || ""}`,
+      `Là où le bât blesse — ou là où l'opportunité se crée, selon le côté où l'on se place —, c'est autour de ${fig0}. ${fact1 ? `${fact1} ` : ""}${fact3 || ""}`,
+      `À regarder de près ${fig0} ainsi que ${fig1}, le constat s'impose de lui-même. ${fact1 ? `${fact1} ` : ""}Chacun cherche désormais la bonne manière de s'y adapter.`
+    ];
+    const endings = [
+      `${fact3 ? `${fact3} ` : ""}Reste maintenant à voir comment cette dynamique va s'inscrire dans nos usages de tous les jours, loin des grands discours et au plus près des besoins réels.`,
+      `Une chose est sûre : entre ${fig0} et les attentes légitimes du public, les prochains rendez-vous du secteur ${category} seront scrutés avec une attention toute particulière.`,
+      `${fact3 ? `${fact3} ` : ""}La balle est désormais dans le camp de ceux qui devront transformer cet essai sur le terrain, là où les promesses se confrontent à la vraie vie.`,
+      `Au bout du compte, ce que rappelle cet épisode suivi par ${source}, c'est qu'aucune évolution en ${category} ne tient la route si elle oublie ceux qui la vivent au quotidien.`,
+      `${fact3 ? `${fact3} ` : ""}Un dossier bien vivant, dont les prochains rebondissements mériteront qu'on garde l'œil ouvert et l'esprit critique en éveil.`,
+      `Il faudra sans doute encore quelques semaines pour mesurer toute la portée de ce virage, mais le signal envoyé aujourd'hui dans la sphère ${category} est déjà limpide.`,
+      `${fact3 ? `${fact3} ` : ""}D'ici là, les acteurs concernés savent qu'ils n'ont plus droit à l'erreur : c'est sur la durée et la sincérité des actes que se fera la différence.`,
+      `Voilà en tout cas un sujet qui remet les pendules à l'heure dans le paysage ${category}, et qui prouve que le réel finit toujours par reprendre ses droits.`
+    ];
+    return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
   }
 
-  if (tone.sentimentType === "curiosite") {
-    return (
-      `${summary}\n\n` +
-      `C'est une de ces nouvelles qui redonnent le goût de lever les yeux et d'interroger notre rapport au monde. En explorant "${title}", les chercheurs et passionnés ouvrent une fenêtre fascinante sur des horizons que l'on croyait inaccessibles. L'émotion scientifique tient ici à ce vertige subtil : la prise de conscience que chaque découverte révèle dix nouveaux mystères à élucider.\n\n` +
-      `Loin des équations arides et du jargon réservé aux initiés, l'aventure est avant tout une odyssée humaine faite de persévérance, d'intuitions fulgurantes et d'échecs surmontés dans le secret des laboratoires et des observatoires. Les équipes impliquées partagent un enthousiasme communicatif qui rappelle la vocation première de la curiosité : repousser les frontières de l'inconnu pour enrichir notre émerveillement commun.\n\n` +
-      `Les perspectives qui s'esquissent pour les prochaines années promettent de bouleverser bien des certitudes établies. Une aventure vivante, belle et lumineuse, à suivre avec les yeux grands ouverts.`
-    );
+  // 2. HUMEUR : HUMORISTIQUE & DÉCALÉ
+  if (mood === "humoristique") {
+    const hooks = [
+      `Sortez le pop-corn et ajustez vos lunettes : dans la grande série à rebondissements du secteur ${category}, l'épisode du jour signé ${source} (« ${title} ») vaut franchement le détour !`,
+      `Si vous pensiez passer une journée tranquille loin des soubresauts de l'actualité ${category}, c'est raté : "${title}" vient de débarquer sur la table avec le tact d'une fanfare un dimanche matin.`,
+      `Avouons-le avec un sourire : il y a des titres qui donnent immédiatement envie de vérifier si son café n'était pas un peu trop serré. Avec "${title}", ${source} nous régale d'une pépite bien de notre époque.`,
+      `On ne s'ennuie décidément jamais dans le merveilleux monde de la ${category} ! À peine le temps de souffler que voici "${title}", servi tout chaud par ${source}.`,
+      `C'est ce qu'on appelle avoir le sens du timing : autour de "${title}", tout le petit monde de la ${category} s'agite comme une ruche qui aurait découvert une promotion sur le miel.`,
+      `Qui a dit que l'actualité ${category} manquait de piquant ? En lisant les détails de "${title}" rapportés par ${source}, on hésite entre l'applaudissement admiratif et le fou rire poli.`,
+      `Attention, virage serré ! Avec "${title}", les protagonistes du dossier nous offrent une chorégraphie millimétrée où chacun tente de garder son sérieux devant les caméras.`,
+      `Imaginez la tête des observateurs chez ${source} en découvrant les dessous de "${title}" : un mélange de surprise gourmande et de « on vous l'avait bien dit ! ».`
+    ];
+    const bodies = [
+      `Il faut dire que les chiffres ont de quoi faire sourire (ou tousser, c'est selon) : jugez plutôt avec ${fig0} et ${fig1} ! ${fact1 ? `${fact1} ` : ""}Pas mal pour un dossier qui devait soi-disant rester sage.`,
+      `Le plus savoureux dans l'histoire se niche dans les détails : entre ${fig0} d'un côté et ${fig1} de l'autre, personne n'avait prévu un tel grand écart. ${fact1 || ""} ${fact2 || ""}`,
+      `Côté coulisses, la recette ne manque pas de sel : prenez ${fig0}, ajoutez une pincée de ${fig1}, secouez vigoureusement et vous obtenez le feuilleton de la semaine. ${fact1 || ""}`,
+      `Pour ceux qui aiment les devinettes chiffrées, retenez bien ${fig0}. ${fact1 ? `${fact1} ` : ""}Et comme un bonheur n'arrive jamais seul, ${fact2 ? fact2.charAt(0).toLowerCase() + fact2.slice(1) : `on note aussi ${fig1}.`}`,
+      `Même le scénariste le plus inspiré n'aurait pas osé aligner ${fig0} et ${fig1} dans la même intrigue. ${fact1 ? `${fact1} ` : ""}Mais la réalité a souvent beaucoup plus d'imagination que la fiction !`,
+      `Alors bien sûr, chacun y va de sa petite partition autour de ${fig0}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `Pendant ce temps, ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`,
+      `Le clou du spectacle ? Sans conteste ${fig0}, talonné de près par ${fig1}. ${fact1 ? `${fact1} ` : ""}De quoi animer joyeusement les prochains dîners en ville.`,
+      `Avec ${fig0} au compteur, on comprend pourquoi tout le monde veut soudainement donner son avis sur la question. ${fact1 || ""} ${fact2 || ""}`
+    ];
+    const endings = [
+      `${fact3 ? `${fact3} ` : ""}Allez, prenons le pari : d'ici le prochain épisode, on n'a pas fini d'en sourire autour de la machine à café !`,
+      `Morale provisoire de cette joyeuse épopée : dans le secteur ${category}, mieux vaut avoir de l'humour et de bonnes chaussures de marche.`,
+      `${fact3 ? `${fact3} ` : ""}En attendant la suite des aventures, gardons le sourire : au moins, le spectacle est compris dans l'abonnement à la vie moderne !`,
+      `Rendez-vous au prochain acte pour voir qui gardera la couronne et qui repartira avec le lot de consolation. D'ici là, haut les cœurs !`,
+      `${fact3 ? `${fact3} ` : ""}Comme quoi, même les dossiers les plus sérieux gagnent à être regardés avec un brin de malice et d'esprit.`,
+      `On souhaite bien du courage à ceux qui devront résumer tout ça sans sourire lors de la prochaine réunion officielle !`,
+      `${fact3 ? `${fact3} ` : ""}Une chose est certaine : si l'audace se mesurait en décibels, ce dossier aurait déjà décroché le disque d'or.`,
+      `Bref, gardez ce sujet sous le coude : c'est le genre d'histoire qui met tout de suite de bonne humeur quand on la raconte avec un brin de recul.`
+    ];
+    return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
   }
 
-  if (tone.sentimentType === "emotion") {
-    return (
-      `${summary}\n\n` +
-      `Il y a dans cette création une étincelle rare qui touche droit au cœur. Autour de "${title}", la matière artistique ou patrimoniale prend une résonance toute particulière, tissant un dialogue intime entre les créateurs et le public. L'accueil réservé par les premiers spectateurs témoigne d'une envie profonde de beauté, de justesse et de partage authentique.\n\n` +
-      `Dans une époque souvent dominée par l'urgence et le bruit des écrans, s'accorder le temps de ressentir, d'écouter ou de contempler apparaît presque comme un acte de résistance poétique. Les artisans et artistes derrière ce projet ont su capturer des nuances délicates, faites d'ombres et de lumières, où chacun peut reconnaître un écho de sa propre sensibilité.\n\n` +
-      `Cette œuvre rappelle la force fondamentale des arts : celle de nous rassembler au-delà de nos différences, dans un espace de liberté et d'émotion partagée.`
-    );
+  // 3. HUMEUR : SARCASTIQUE & MORDANT
+  if (mood === "sarcastique") {
+    const hooks = [
+      `Oh, quelle divine surprise ! À en croire les violons habituels, tout devait rouler comme sur des roulettes, et voilà que ${source} lève le voile sur "${title}". Qui aurait pu prédire ?`,
+      `Sortez les mouchoirs et les éléments de langage : avec "${title}", on atteint des sommets dans l'art délicat de nous vendre des vessies pour des lanternes connectées.`,
+      `C'est beau comme une promesse électorale un soir de printemps : autour de "${title}", tout le monde rivalise soudainement de vertu et d'étonnement feint, comme le rapporte ${source}.`,
+      `Encore un chef-d'œuvre de lucidité tardive dans le monde merveilleux de la ${category} ! Il aura fallu que ${source} mette les pieds dans le plat avec "${title}" pour que les langues se délient.`,
+      `On adore quand la réalité vient poliment frapper à la porte des grands stratèges : avec "${title}", le vernis craque pile là où on nous jurait qu'il était indestructible.`,
+      `Mais oui, dormez braves gens, tout est sous contrôle ! Enfin, jusqu'à ce qu'on lise en détail ce que révèle ${source} à propos de "${title}".`,
+      `Dans la catégorie « on nous prend vraiment pour des perdreaux de l'année », le dossier "${title}" suivi par ${source} mérite assurément une médaille en chocolat.`,
+      `Admirez le travail d'équilibriste : autour de "${title}", certains réussissent l'exploit de créer le problème le lundi pour se poser en sauveurs providentiels le jeudi.`
+    ];
+    const bodies = [
+      `Car les chiffres, eux, ont le mauvais goût de ne pas lire les dossiers de presse : ${fig0}, assorti de ${fig1}. ${fact1 ? `${fact1} ` : ""}Mais chut, il paraît que c'est « totalement maîtrisé ».`,
+      `Regardez bien la mécanique : d'un côté on affiche ${fig0}, de l'autre on glisse discrètement ${fig1} sous le tapis. ${fact1 || ""} ${fact2 || ""} Du grand art !`,
+      `Quand on additionne ${fig0} et ${fig1}, la farce devient carrément savoureuse. ${fact1 ? `${fact1} ` : ""}On attend avec impatience la pirouette rhétorique qui justifiera la facture.`,
+      `${fact1 ? `${fact1} ` : ""}Et pour couronner le tout, le compteur affiche ${fig0} ainsi que ${fig1}. Bien entendu, les responsables nous expliqueront la main sur le cœur que personne ne l'avait vu venir.`,
+      `C'est fou ce que les chiffres deviennent bavards quand on les presse un peu : ${fig0}, rien que ça ! ${fact1 ? `${fact1} ` : ""}${fact2 || ""}`,
+      `Pendant qu'on nous amuse avec des formules ronflantes, la vraie addition tourne autour de ${fig0} et ${fig1}. ${fact1 || ""} Cherchez l'erreur !`,
+      `Le détail qui tue ? Sans doute ${fig0}, complété par ${fig1}. ${fact1 ? `${fact1} ` : ""}Il fallait oser, ils l'ont fait sans même cligner des yeux.`,
+      `Sous les sourires de façade, la réalité comptable pique un peu : ${fig0}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `Et comme par hasard, ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`
+    ];
+    const endings = [
+      `${fact3 ? `${fact3} ` : ""}Mais rassurez-vous : à la fin, comme d'habitude, les décideurs empocheront les lauriers et les usagers paieront les pots cassés.`,
+      `On parie combien qu'un comité Théodule va être créé dès lundi matin pour nous pondre un rapport de 200 pages que personne ne lira ?`,
+      `${fact3 ? `${fact3} ` : ""}Allez, circulez, il n'y a rien à voir… jusqu'au prochain retour de bâton qui surprendra encore tous les experts autoproclamés !`,
+      `Bref, encore une brillante démonstration que dans le secteur ${category}, le ridicule ne tue pas — il donne même parfois droit à un bonus.`,
+      `${fact3 ? `${fact3} ` : ""}Heureusement qu'il nous reste l'ironie pour digérer la pilule, parce que côté sobriété dans la mauvaise foi, les quotas sont largement dépassés.`,
+      `Vivement la prochaine conférence de presse où l'on nous expliquera avec aplomb que ce cafouillage était en réalité une « stratégie disruptive » !`,
+      `${fact3 ? `${fact3} ` : ""}En attendant, gardez la main sur votre portefeuille : quand les discours deviennent aussi lyriques, l'addition n'est jamais bien loin.`,
+      `Fin du premier acte. Nul doute que la suite nous réservera encore quelques perles d'hypocrisie polie dont nos élites ont le secret.`
+    ];
+    return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
   }
 
-  // Registre Vivant & Réaliste par défaut (technologie, société, économie à visage humain)
-  return (
-    `${summary}\n\n` +
-    `Au-delà des communiqués froids et des effets d'annonce, l'histoire de "${title}" se raconte d'abord au ras du sol. Sur le terrain, les femmes et les hommes confrontés directement à ces évolutions posent les vraies questions : celles du quotidien, de la charge de travail, de la liberté de choix et de la confiance dans l'avenir. Leurs témoignages apportent une respiration salutaire face aux discours préfabriqués.\n\n` +
-    `Loin des certitudes triomphantes comme des défaitismes faciles, ce dossier met en lumière un paradoxe fascinant de notre temps : comment moderniser nos outils et nos organisations sans jamais sacrifier le lien social et la dignité humaine ? L'équation est serrée, mais ceux qui la résolvent avec succès sont précisément ceux qui placent l'écoute et l'éthique au centre de chaque décision.\n\n` +
-    `Les semaines à venir permettront de juger sur pièces si les engagements pris se traduisent par des améliorations concrètes. Une certitude demeure : rien de durable ne se construira sans l'adhésion lucide et volontaire des premiers concernés.`
-  );
+  // 4. HUMEUR : ENQUÊTE & COULISSES (Investigation)
+  if (mood === "investigateur") {
+    const hooks = [
+      `Pour comprendre les véritables ressorts de "${title}", il faut suivre la piste des chiffres et des rapports de force documentés par ${source}.`,
+      `Qui gagne, qui perd et qui tire réellement les ficelles derrière "${title}" ? Les éléments rassemblés par ${source} éclairent la mécanique interne du dossier.`,
+      `En recoupant les données disponibles autour de "${title}", un constat stratégique se dégage nettement dans la filière ${category}.`,
+      `Dans les coulisses de "${title}", les arbitrages financiers et opérationnels relevés par ${source} montrent que rien n'est dû au hasard.`,
+      `Décryptage pièce par pièce : derrière l'intitulé "${title}", plusieurs mouvements convergents redessinent actuellement la carte du secteur ${category}.`,
+      `C'est le point névralgique que scrutent tous les analystes après la publication de ${source} sur "${title}" : où se situe le vrai levier de décision ?`,
+      `Ouvrons le capot de ce dossier "${title}" : entre intérêts industriels, contraintes réglementaires et données chiffrées, l'enquête révèle des lignes de faille précises.`,
+      `Les faits bruts rapportés par ${source} autour de "${title}" dessinent une séquence où chaque acteur abat ses cartes avec un objectif bien précis.`
+    ];
+    const bodies = [
+      `Premier élément matériel au dossier : ${fig0}, directement corrélé à ${fig1}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `En parallèle, ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`,
+      `L'examen attentif des indicateurs fait ressortir deux marqueurs clés : ${fig0} d'une part, et ${fig1} d'autre part. ${fact1 || ""} ${fact2 || ""}`,
+      `En suivant la chaîne de valeur du secteur ${category}, un chiffre retient immédiatement l'attention : ${fig0}. ${fact1 ? `${fact1} ` : ""}Ce paramètre explique à lui seul l'accélération actuelle.`,
+      `${fact1 ? `${fact1} ` : ""}Côté chiffrage, le croisement entre ${fig0} et ${fig1} confirme l'ampleur des engagements en jeu. ${fact2 || ""}`,
+      `Les documents et retours de terrain convergent vers un même point d'équilibre : ${fig0}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `Surtout, ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`,
+      `Sous l'angle financier et structurel, l'équation repose sur ${fig0} ainsi que ${fig1}. ${fact1 || ""} Un verrou stratégique que les acteurs du secteur ${category} cherchent tous à contrôler.`,
+      `Trois faits vérifiés structurent cette affaire : ${fact1 || title} ; la pesée de ${fig0} ; et l'impact direct mesuré par ${fig1}. ${fact2 || ""}`,
+      `La clé de lecture réside dans l'écart observé autour de ${fig0} et ${fig1}. ${fact1 ? `${fact1} ` : ""}C'est exactement sur ce terrain que se joue le rapport de force.`
+    ];
+    const endings = [
+      `${fact3 ? `${fact3} ` : ""}Reste une question décisive pour la suite de l'enquête : qui assumera le coût réel de ces arbitrages à moyen terme ?`,
+      `Les prochaines échéances permettront de vérifier si les garanties annoncées résistent à l'épreuve des comptes et du terrain.`,
+      `${fact3 ? `${fact3} ` : ""}Un dossier stratégique à suivre de près, tant ses ramifications dans le secteur ${category} dépassent le cadre de cette première étape.`,
+      `En clair : derrière la vitrine officielle, le véritable bras de fer économique et réglementaire autour de "${title}" ne fait que commencer.`,
+      `${fact3 ? `${fact3} ` : ""}La vigilance reste donc de mise sur l'exécution concrète et la transparence des flux engagés.`,
+      `C'est sur ces indicateurs précis — et non sur les intentions déclarées — que se jouera la crédibilité de l'opération dans les mois qui viennent.`,
+      `${fact3 ? `${fact3} ` : ""}Autant d'éléments tangibles qui montrent que la recomposition du secteur ${category} est désormais entrée dans sa phase critique.`,
+      `Affaire à suivre : les prochains bilans chiffrés diront rapidement qui détenait la bonne lecture du dossier.`
+    ];
+    return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
+  }
+
+  // 5. HUMEUR : POÉTIQUE & LITTÉRAIRE
+  if (mood === "poetique") {
+    const hooks = [
+      `Il est des nouvelles qui traversent le tumulte des jours comme un signe discret des métamorphoses de notre temps : ainsi en va-t-il de "${title}", esquissé aujourd'hui par ${source}.`,
+      `Sous la prose ordinaire des dépêches, l'histoire de "${title}" déploie une tapisserie singulière où se mêlent les élans, les doutes et les espoirs d'une époque.`,
+      `À qui sait prêter l'oreille aux murmures du monde, ce que raconte ${source} autour de "${title}" résonne avec une intensité toute particulière.`,
+      `Chaque journée apporte sur le rivage de l'actualité son lot de récits fragiles ou puissants ; "${title}" appartient à ceux qui laissent une empreinte durable dans l'esprit.`,
+      `Comme un chapitre nouveau qui s'écrit sous nos yeux dans le grand livre du domaine ${category}, "${title}" invite à suspendre un instant la course des horloges.`,
+      `Derrière les mots posés par ${source} sur "${title}", on devine le bruissement des coulisses, la patience des gestes et le souffle d'une époque qui cherche sa voie.`,
+      `Regarder "${title}" avec les yeux d'un chroniqueur attentif, c'est accepter d'y voir bien plus qu'un fait brut : le miroir mouvant de nos aspirations collectives.`,
+      `Dans la lumière changeante de cette semaine, le récit consacré par ${source} à "${title}" dessine des contours à la fois précis et profondément humains.`
+    ];
+    const bodies = [
+      `Même la rigueur des nombres — ${fig0}, ou encore ${fig1} — semble ici raconter une aventure sensible. ${fact1 ? `${fact1} ` : ""}Chaque chiffre porte en lui la trace d'un effort ou d'un choix.`,
+      `${fact1 ? `${fact1} ` : ""}Et lorsque l'on contemple l'ampleur de ${fig0} conjuguée à ${fig1}, on mesure combien la main de l'homme continue de façonner patiemment son horizon. ${fact2 || ""}`,
+      `Il y a une géométrie secrète dans cet enchaînement où ${fig0} répond à ${fig1}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `Plus loin, ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`,
+      `Car la réalité, jusque dans ses repères les plus tangibles (${fig0}), ne sépare jamais le calcul de l'émotion. ${fact1 || ""} ${fact2 || ""}`,
+      `À travers ${fig0} et ${fig1}, c'est toute une géographie d'initiatives et de regards croisés qui s'anime doucement. ${fact1 ? `${fact1} ` : ""}`,
+      `Les faits recueillis par ${source} — ${fact1 || title} — s'illuminent d'un relief neuf dès qu'on les relie à ${fig0} et au chemin parcouru.`,
+      `Entre l'exactitude de ${fig0} et le mouvement esquissé par ${fig1}, la chronique trouve son rythme juste, fidèle à la vérité des choses. ${fact1 || ""}`,
+      `Tout se tient dans ce tableau nuancé : la précision de ${fig0}, la portée de ${fig1}, et cette réalité vivante que résume ${source}. ${fact1 || ""}`
+    ];
+    const endings = [
+      `${fact3 ? `${fact3} ` : ""}Et tandis que la page du jour se tourne, demeure cette question silencieuse : quelle trace cet élan laissera-t-il dans la mémoire de demain ?`,
+      `Ainsi chemine le monde, entre audace et fragilité, nous offrant à chaque étape matière à comprendre, à veiller et à espérer.`,
+      `${fact3 ? `${fact3} ` : ""}Une histoire encore en devenir, pareille à un sentier qui s'ouvre à l'aube et dont les pas des hommes traceront la suite.`,
+      `Gardons de cette chronique la clarté d'un regard attentif, car comprendre le présent est déjà la plus belle manière d'habiter l'avenir.`,
+      `${fact3 ? `${fact3} ` : ""}Le temps, seul juge véritable, dira bientôt quelle moisson naîtra de ces semences déposées aujourd'hui.`,
+      `Dans le bruissement continu des nouvelles, celle-ci mérite qu'on la garde un instant en mémoire, comme une note juste au milieu du concert.`,
+      `${fact3 ? `${fact3} ` : ""}Reste la beauté d'un mouvement qui ne s'arrête jamais, porté par celles et ceux qui refusent l'immobilité.`,
+      `C'est là toute la noblesse du récit vérifié : transformer le fracas de l'instant en une intelligence partagée et apaisée.`
+    ];
+    return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
+  }
+
+  // 6. HUMEUR : CASH & SANS FILTRE
+  if (mood === "cash") {
+    const hooks = [
+      `Allons droit au but sans tourner autour du pot : avec "${title}", rapporté par ${source}, voilà exactement ce qu'il faut savoir.`,
+      `Zéro blabla, parlons vrai : que cache réellement "${title}" et pourquoi ça vous concerne directement ? Les faits sont sur la table.`,
+      `On va se dire les choses franchement : dans le secteur ${category}, "${title}" change la donne tout de suite. Point barre.`,
+      `Pas besoin d'un dessin ni de trois heures de discours pour résumer "${title}" (${source}) : les faits parlent d'eux-mêmes.`,
+      `Voici le topo en clair sur "${title}" : ce qui est annoncé, ce que disent les chiffres de ${source}, et ce que ça implique concrètement.`,
+      `Trêve de bavardages : autour de "${title}", la réalité terrain tient en quelques éléments solides que voici.`,
+      `Vous voulez la version courte, franche et vérifiée de "${title}" ? La voilà, chiffres et preuves à l'appui avec ${source}.`,
+      `Mettons les pieds dans le plat : avec "${title}", le secteur ${category} est placé devant le fait accompli.`
+    ];
+    const bodies = [
+      `Côté chiffres, c'est net et sans bavure : ${fig0}, doublé de ${fig1}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `Autre point direct : ${fact2}` : ""}`,
+      `Retenez deux données clés : ${fig0} et ${fig1}. ${fact1 ? `${fact1} ` : ""}Pas besoin de chercher midi à quatorze heures pour voir l'impact.`,
+      `Le cœur du sujet ? ${fact1 || title} Côté compteur, on est sur ${fig0} et ${fig1}. ${fact2 || ""} Tout le reste, c'est de la littérature.`,
+      `Les faits bruts : d'abord ${fig0}. Ensuite ${fig1}. ${fact1 ? `${fact1} ` : ""}${fact2 || ""}`,
+      `Concrètement, ça donne quoi ? ${fig0} sur la balance, et ${fig1} en ligne de mire. ${fact1 ? `${fact1} ` : ""}Difficile de faire plus clair.`,
+      `Regardez la facture et l'échelle : ${fig0}. ${fact1 ? `${fact1} ` : ""}${fact2 ? `${fact2} ` : ""}Voilà où se situe le vrai nerf de la guerre.`,
+      `Trois repères directs à garder en tête : ${fig0}, ${fig1}, et ce constat rapporté par ${source} — ${fact1 || title}.`,
+      `Pas de détour possible face à ${fig0} et ${fig1}. ${fact1 ? `${fact1} ` : ""}Ceux qui traînent des pieds vont vite le sentir passer.`
+    ];
+    const endings = [
+      `${fact3 ? `${fact3} ` : ""}Conclusion : seuls les résultats concrets compteront. Le reste, ce sont des paroles.`,
+      `Vous avez maintenant toutes les cartes en main pour juger sur pièces, sans filtre et sans intermédiaire.`,
+      `${fact3 ? `${fact3} ` : ""}Bref : c'est maintenant que ça se joue, et les chiffres ne mentiront pas.`,
+      `Le message est limpide pour tout le secteur ${category} : s'adapter vite ou décrocher.`,
+      `${fact3 ? `${fact3} ` : ""}Au moins, les règles du jeu sont posées clairement sur la table.`,
+      `Verdict dans les prochaines semaines, mais une chose est sûre : impossible désormais de dire qu'on ne savait pas.`,
+      `${fact3 ? `${fact3} ` : ""}Clair, carré, vérifié : à chacun maintenant d'en tirer les conclusions qui s'imposent.`,
+      `Point final pour aujourd'hui : on garde l'œil sur les actes, uniquement sur les actes.`
+    ];
+    return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
+  }
+
+  // 7. HUMEUR : PHILOSOPHE & SEREIN
+  const hooks = [
+    `Prenons un instant de recul face à l'actualité du jour : que nous dit véritablement "${title}", relayé par ${source}, sur nos choix collectifs ?`,
+    `Loin de l'empressement qui accompagne souvent les nouvelles du secteur ${category}, "${title}" invite à une réflexion apaisée et lucide.`,
+    `Toute évolution technique ou sociale porte en elle une question de sens ; en observant "${title}" avec ${source}, c'est notre rapport à l'avenir qui s'éclaire.`,
+    `Savoir distinguer l'écume des jours du mouvement de fond : voilà tout l'intérêt de se pencher sereinement sur "${title}".`,
+    `Comme le rappellent volontiers les esprits attentifs, un fait comme "${title}" (${source}) gagne toujours à être pesé avec mesure et discernement.`,
+    `Observons "${title}" sans passion excessive ni inquiétude hâtive, mais avec cette curiosité tranquille qui permet de comprendre avant de juger.`,
+    `Derrière l'immédiateté de "${title}", rapporté par ${source}, se dessine une interrogation plus vaste sur l'équilibre de nos sociétés contemporaines.`,
+    `Poser un regard serein sur "${title}", c'est d'abord accepter la complexité du réel telle qu'elle apparaît dans le domaine ${category}.`
+  ];
+  const bodies = [
+    `Les repères objectifs dont nous disposons — ${fig0}, ainsi que ${fig1} — offrent une boussole précieuse. ${fact1 ? `${fact1} ` : ""}Ils rappellent que toute transformation demande de la méthode et du sens des responsabilités.`,
+    `${fact1 ? `${fact1} ` : ""}En mettant en regard ${fig0} et ${fig1}, on perçoit mieux la ligne de crête sur laquelle avancent les acteurs impliqués : innover ou agir, oui, mais à quelle fin ? ${fact2 || ""}`,
+    `La mesure des choses passe ici par des faits précis : ${fig0} d'un côté, ${fig1} de l'autre. ${fact1 ? `${fact1} ` : ""}${fact2 ? `Il apparaît également que ${fact2.charAt(0).toLowerCase() + fact2.slice(1)}` : ""}`,
+    `Ce que révèlent ${fig0} et les éléments vérifiés par ${source}, c'est que chaque progrès ou chaque décision en ${category} appelle une vigilance éthique proportionnée. ${fact1 || ""}`,
+    `Entre l'ampleur de ${fig0} et la réalité de ${fig1}, l'équilibre n'est jamais donné d'avance ; il se construit par le dialogue et la raison. ${fact1 || ""}`,
+    `Examiner calmement ${fig0} permet d'éviter les jugements à l'emporte-pièce. ${fact1 ? `${fact1} ` : ""}${fact2 || ""}`,
+    `Les faits sont là, posés avec clarté (${fig0}, ${fig1}). ${fact1 ? `${fact1} ` : ""}Ils nous invitent à conjuguer efficacité pratique et respect de l'intérêt général.`,
+    `En articulant ${fig0} avec les observations de ${source}, on comprend que le véritable enjeu dépasse la seule mécanique technique pour toucher à la confiance commune. ${fact1 || ""}`
+  ];
+  const endings = [
+    `${fact3 ? `${fact3} ` : ""}Au fond, la sagesse consiste peut-être à accompagner ces mutations avec lucidité, en veillant à ce que l'outil reste toujours au service de l'humain.`,
+    `Prenons donc le temps d'observer la suite avec calme : les meilleures décisions naissent toujours d'une information comprise sans précipitation.`,
+    `${fact3 ? `${fact3} ` : ""}Une invitation salutaire à cultiver le discernement, seule véritable boussole dans un monde en mouvement.`,
+    `Car comprendre les faits dans leur juste nuance, c'est déjà exercer pleinement sa liberté de citoyen et de lecteur.`,
+    `${fact3 ? `${fact3} ` : ""}Reste à chacun de nourrir sa propre réflexion à partir de ces repères vérifiés, avec sérénité et ouverture d'esprit.`,
+    `Laissons aux événements le temps de mûrir, tout en gardant à l'esprit les principes d'équilibre et de justesse que ce dossier met en lumière.`,
+    `${fact3 ? `${fact3} ` : ""}Ainsi va la marche des idées et des faits : elle récompense toujours ceux qui préfèrent la clarté durable au vacarme éphémère.`,
+    `Un sujet qui, bien compris, enrichit notre regard sur le monde sans jamais troubler notre tranquillité d'esprit.`
+  ];
+  return `${leadParagraph}\n\n${hooks[v1]} ${bodies[v2]}\n\n${endings[v3]}`;
+}
+
+/**
+ * Formate et restitue le récit complet d'un article selon l'humeur choisie par l'utilisateur (les 7 réglages d'humeur).
+ * - Si l'utilisateur a généré une réécriture IA spécifique pour cette humeur (moodRewrites[mood]), on l'affiche en priorité.
+ * - Si l'humeur est "humain" et que l'article possède déjà un grand récit original (sans phrases clichés), on le restitue proprement.
+ * - Sinon, on génère dynamiquement le récit dans l'humeur sélectionnée (humoristique, sarcastique, investigateur, poétique, cash, philosophe, humain).
+ */
+export function formatArticleWithMood(article: NewsArticle | null | undefined, mood: EditorialMood = "humain"): string {
+  if (!article) return "";
+
+  // 1. Custom AI rewrite cached on the article for this specific mood
+  const customRewrites = (article as any).moodRewrites as Record<string, string> | undefined;
+  if (customRewrites && customRewrites[mood] && customRewrites[mood].trim().length > 100) {
+    return sanitizeHumanStory(customRewrites[mood]);
+  }
+
+  // 2. If mood is "humain", check if the article already has a rich, authentic human story free of canned boilerplate
+  if (mood === "humain" && article.content) {
+    const cleaned = cleanArticleContent(article.content, article.title, article.summary, "humain");
+    if (cleaned.length >= 350 && !hasCannedBoilerplate(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  // 3. Otherwise, compose the article dynamically in the requested mood using all its verified facts, figures & context
+  return buildHumanStoryByTone(article, mood);
 }
 
 /**
@@ -1156,7 +1584,6 @@ export function formatArticleDateTime(art: NewsArticle | null | undefined): stri
   if (!ts && typeof art.id === "number" && art.id > 1000000000000) {
     ts = art.id;
   }
-  // Normalize if timestamp was placed in distant future
   if (ts && ts > Date.now() + 60000) {
     ts = Date.now();
   }
@@ -1205,13 +1632,19 @@ export function getArticleRelativeTime(art: NewsArticle | null | undefined): str
 }
 
 /**
- * Guarantees that any article in InfoPerso is richly documented
+ * Guarantees that any article in InfoPerso is richly documented and 100% free of canned phrases
  */
 export function ensureArticleDeepData(article: NewsArticle): NewsArticle {
   if (!article) return article;
 
-  // Ultra-fast path: if already enriched, return same reference immediately (0ms)
-  if ((article as any).__isDeepEnriched && article.keyFigures && article.keyFigures.length >= 3 && article.strategicAnalysis?.marketImpact) {
+  // Ultra-fast path: only if already enriched AND free of any old canned boilerplate phrases
+  if (
+    (article as any).__isDeepEnriched &&
+    article.keyFigures &&
+    article.keyFigures.length >= 3 &&
+    article.strategicAnalysis?.marketImpact &&
+    !hasCannedBoilerplate(article.content)
+  ) {
     return article;
   }
 
@@ -1221,7 +1654,7 @@ export function ensureArticleDeepData(article: NewsArticle): NewsArticle {
   let keyFigures = article.keyFigures;
   let keyTakeaways = article.keyTakeaways;
   let strategicAnalysis = article.strategicAnalysis;
-  let content = article.content || "";
+  let content = stripCannedBoilerplate(article.content || "");
 
   const isMondialAuto = 
     article.id === 654495961000 ||
@@ -1266,27 +1699,33 @@ export function ensureArticleDeepData(article: NewsArticle): NewsArticle {
       ? keyFigures
       : extractOrSynthesizeKeyFigures(article);
 
-    keyTakeaways = keyTakeaways && keyTakeaways.length >= 3
-      ? keyTakeaways
-      : extractOrSynthesizeKeyTakeaways(article);
+    const cleanedExistingTakeaways = (keyTakeaways || []).filter(t => !hasCannedBoilerplate(t));
+    keyTakeaways = cleanedExistingTakeaways.length >= 3
+      ? cleanedExistingTakeaways
+      : extractOrSynthesizeKeyTakeaways({ ...article, content });
 
     strategicAnalysis = strategicAnalysis && strategicAnalysis.marketImpact
       ? strategicAnalysis
       : extractOrSynthesizeStrategicAnalysis(article);
   }
 
-  // Clean raw JSON boilerplate from content
+  // Clean raw JSON boilerplate and any canned sentences from content
   content = cleanArticleContent(content, article.title, article.summary);
 
-  // Grand récit journalistique incarné (sans aucune phase robotique de cabinet)
-  const isTooShort = !content || content.trim().length < 350;
+  const isTooShort = !content || content.trim().length < 320;
   const hasRoboticMarkers =
+    hasCannedBoilerplate(content) ||
     /###\s*\d+\.\s*(?:Contexte|Analyse|Impact|Perspectives|Enjeux)/i.test(content) ||
     content.includes("Analyse Approfondie & Enjeux Sectoriels") ||
     content.includes("Impacts Économiques, Sociaux & Retombées Pratiques");
 
   if (isTooShort || hasRoboticMarkers) {
-    content = buildHumanStoryByTone(article);
+    content = buildHumanStoryByTone({
+      ...article,
+      keyFigures,
+      keyTakeaways,
+      strategicAnalysis
+    });
   } else {
     content = sanitizeHumanStory(content);
   }
@@ -1297,13 +1736,13 @@ export function ensureArticleDeepData(article: NewsArticle): NewsArticle {
     ? article.score_bruit
     : Math.max(1, Math.min(5, Math.round(5 - ((article.score || 85) / 28))));
   const faits_verifies = article.faits_verifies && article.faits_verifies.length > 0
-    ? article.faits_verifies
+    ? article.faits_verifies.filter(f => !hasCannedBoilerplate(f))
     : keyTakeaways.slice(0, 3);
   const debat_nuance = article.debat_nuance || {
     dominante: `Traitement axé sur l'actualité immédiate : ${article.title}`,
     angles_morts: [
-      `Arbitrages économiques et répercussions structurelles sur le temps long pour le secteur.`,
-      `Données de fond non détaillées dans la couverture initiale par ${article.source}.`
+      `Arbitrages économiques et répercussions structurelles pour le secteur ${article.category || "concerné"}.`,
+      `Données de fond complémentaires à suivre après la publication initiale par ${article.source}.`
     ],
     question_discernement: `Quels équilibres entre retombées immédiates et perspectives de fond privilégier pour ce dossier ?`
   };

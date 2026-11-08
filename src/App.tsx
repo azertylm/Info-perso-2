@@ -74,6 +74,7 @@ import AlphabettePricingModal from "./components/AlphabettePricingModal";
 import AlphabetteNavbar from "./components/AlphabetteNavbar";
 import AlphabetteQuotaExceededModal from "./components/AlphabetteQuotaExceededModal";
 import ApiKeyTrousseauModal from "./components/ApiKeyTrousseauModal";
+import GuidedTourModal, { FloatingHelpBeacon } from "./components/GuidedTourModal";
 import { PWAInstallButton } from "./components/PWAInstallButton";
 import { useNetworkStatus } from "./lib/offlineManager";
 
@@ -143,6 +144,20 @@ export default function App() {
       document.documentElement.setAttribute("data-theme", "light");
     }
   }, [themeMode]);
+
+  // Guided Tour Modal (Onboarding for private users)
+  const [isGuidedTourOpen, setIsGuidedTourOpen] = useState(false);
+
+  // Auto-launch guided tour for first-time private users
+  useEffect(() => {
+    const seen = localStorage.getItem("infoperso_guided_tour_seen");
+    if (!seen) {
+      const timer = setTimeout(() => {
+        setIsGuidedTourOpen(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Listen for global quota modal and trousseau events
   useEffect(() => {
@@ -1851,8 +1866,26 @@ export default function App() {
         themeMode={themeMode}
       />
 
+      {/* PARCOURS GUIDÉ ONBOARDING (Pour le particulier) */}
+      <GuidedTourModal
+        isOpen={isGuidedTourOpen}
+        onClose={() => {
+          setIsGuidedTourOpen(false);
+          localStorage.setItem("infoperso_guided_tour_seen", "true");
+        }}
+        onOpenPricing={() => {
+          setIsGuidedTourOpen(false);
+          setIsPricingModalOpen(true);
+        }}
+        isDark={isDark}
+      />
 
-
+      {/* BULLE D'AIDE FLOTTANTE (Accès permanent au guide & assistance) */}
+      <FloatingHelpBeacon
+        onOpenTour={() => setIsGuidedTourOpen(true)}
+        onOpenPricing={() => setIsPricingModalOpen(true)}
+        isDark={isDark}
+      />
 
     </div>
   );

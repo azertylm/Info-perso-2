@@ -65,9 +65,10 @@ import {
   CheckCircle2,
   TrendingUp,
   ArrowLeft,
-  Play
+  Play,
+  Pause
 } from "lucide-react";
-import { NewsArticle, ApiKeys, AVAILABLE_MODELS, DiscoveryMode, NaturalRadarProfile, ReperesTemporelsItem } from "../types";
+import { NewsArticle, ApiKeys, AVAILABLE_MODELS, DiscoveryMode, NaturalRadarProfile, VoiceProfile } from "../types";
 import { motion } from "motion/react";
 import { getArticleIllustration, getFallbackCategoryIllustration, fetchLiveWikimediaPhoto } from "../lib/photoService";
 import { exportArticleAsPdf } from "../lib/pdfExportService";
@@ -90,14 +91,28 @@ import {
   extractAllYouTubeIds,
   getVideoKeyPoints
 } from "../lib/youtubeHelper";
-import { getArticleReperesTemporels } from "../lib/reperesTemporelsHelper";
 import { purgeFillerWords } from "../lib/phoneticNormalizer";
 import { SettingsVolet } from "./SettingsVolet";
 import { CultureBarAndModal, CULTURE_SHORTCUTS } from "./CultureBarAndModal";
 import { getNextSuggestedWords, normalizeKeyword } from "../lib/semanticExplorer";
 import { EditorialMixerBar, ArticleFeedbackWidget, TagActionModal } from "./PersonalizationSuite";
 import { sanitizeArticleTemporalConsistency, fixTemporalConsistency, getTemporalPromptDirective } from "../lib/temporalConsistency";
-import { ensureArticleDeepData, cleanArticleContent, formatArticleDateTime, getArticleRelativeTime, deduplicateArticlesList, getArticleHumanTone, TRUMP_TMTG_FULL_CONTENT, MONDIAL_AUTO_2026_FULL_CONTENT, ENFANTS_ROUGES_FIRE_FULL_CONTENT } from "../lib/articleEnricher";
+import {
+  ensureArticleDeepData,
+  cleanArticleContent,
+  formatArticleDateTime,
+  getArticleRelativeTime,
+  deduplicateArticlesList,
+  getArticleHumanTone,
+  EditorialMood,
+  EDITORIAL_MOODS,
+  getEditorialMoodConfig,
+  formatArticleWithMood,
+  hasCannedBoilerplate,
+  TRUMP_TMTG_FULL_CONTENT,
+  MONDIAL_AUTO_2026_FULL_CONTENT,
+  ENFANTS_ROUGES_FIRE_FULL_CONTENT
+} from "../lib/articleEnricher";
 import { getQuotaStatus, incrementQuotaUsage } from "../lib/quotaManager";
 import { useFoldable } from "../lib/useFoldable";
 import { FoldableBar } from "./FoldableBar";
@@ -111,6 +126,10 @@ import { TimelineModal } from "./TimelineModal";
 import { DevilDebateModal } from "./DevilDebateModal";
 import { QuizMemoryModal } from "./QuizMemoryModal";
 import { ExecutiveBriefingModal } from "./ExecutiveBriefingModal";
+import { articleSpeechManager, AudioEngineType } from "../lib/speechService";
+import { ArticleAudioPlayer } from "./ArticleAudioPlayer";
+import { VoiceCustomizerModal } from "./VoiceCustomizerModal";
+import { getActiveVoiceProfile } from "../lib/voiceProfiles";
 
 
 // Initial mock dataset from static HTML template
@@ -1581,6 +1600,86 @@ export default function NewsFeed({
 
   const [tagActionModalTag, setTagActionModalTag] = useState<string | null>(null);
 
+  // 7 Réglages d'Humeur d'écriture (Humain, Humoristique, Sarcastique, Enquête, Poétique, Cash, Philosophe)
+  const [editorialMood, setEditorialMood] = useState<EditorialMood>(() => {
+    try {
+      const saved = localStorage.getItem("infoperso_editorial_mood") as EditorialMood;
+      if (saved && EDITORIAL_MOODS.some(m => m.id === saved)) return saved;
+    } catch {}
+    return "humain";
+  });
+  const [isRewritingMood, setIsRewritingMood] = useState(false);
+
+  const handleSelectEditorialMood = (newMood: EditorialMood) => {
+    setEditorialMood(newMood);
+    try {
+      localStorage.setItem("infoperso_editorial_mood", newMood);
+    } catch {}
+    const cfg = getEditorialMoodConfig(newMood);
+    onNotify(`${cfg.emoji} Humeur d'écriture : ${cfg.label}`);
+  };
+
+  const handleAiRewriteInMood = async (article: NewsArticle, moodToUse: EditorialMood) => {
+    if (!article || isRewritingMood) return;
+    setIsRewritingMood(true);
+    const cfg = getEditorialMoodConfig(moodToUse);
+    onNotify(`✨ Rédaction humaine sur-mesure en mode « ${cfg.label} »...`);
+
+    const moodInstructions: Record<EditorialMood, string> = {
+      humain: "Écris comme un journaliste de terrain chaleureux, incarné et vivant. Raconte les faits à hauteur d'homme, avec naturel, fluidité et zéro cliché.",
+      humoristique: "Écris avec beaucoup d'humour, d'esprit, des comparaisons savoureuses et des clins d'œil complices tout en gardant tous les faits et chiffres exacts.",
+      sarcastique: "Écris sur un ton franchement sarcastique, mordant et piquant (façon Canard Enchaîné), en démontant la langue de bois et les effets de communication.",
+      investigateur: "Écris comme un grand reporter d'investigation : décortique les coulisses, les rapports de force financiers, qui paie, qui encaisse et les vrais chiffres.",
+      poetique: "Écris avec une plume littéraire, poétique et sensible d'écrivain, attentive aux atmosphères, au souffle des phrases et à la beauté des mots.",
+      cash: "Écris de manière ultra-directe, cash et sans filtre : phrases percutantes, droit au but, zéro blabla, les vrais chiffres et ce que ça change concrètement.",
+      philosophe: "Écris avec le recul apaisé d'un philosophe : prends de la hauteur, interroge le sens profond de l'événement et nos choix de société avec sérénité."
+    };
+
+    try {
+      const figuresText = (article.keyFigures || []).map(f => `${f.label}: ${f.value}`).join(" | ");
+      const takeawaysText = (article.keyTakeaways || []).join(" ; ");
+      const res = await safeFetchJson<{ text?: string; error?: string }>("/api/ai/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction:
+            `Tu es une grande plume de la presse française. ${moodInstructions[moodToUse]}\n` +
+            `INTERDICTION ABSOLUE d'utiliser des phrases toutes faites comme "Au-delà des communiqués froids", "Loin des certitudes", "Dans un monde en constante évolution", ni d'intertitres numérotés ("### 1.").\n` +
+            `Rédige 3 à 4 beaux paragraphes fluides, 100% humains, en intégrant naturellement les faits et les chiffres fournis.`,
+          prompt:
+            `Titre : ${article.title}\n` +
+            `Source : ${article.source}\n` +
+            `Résumé : ${article.summary}\n` +
+            `Chiffres clés : ${figuresText}\n` +
+            `Faits vérifiés : ${takeawaysText}\n\n` +
+            `Réécris cet article avec l'humeur « ${cfg.label} » (${cfg.description}). Renvoie uniquement le texte des paragraphes séparés par une ligne vide.`,
+          temperature: 0.75,
+          maxTokens: 1400
+        })
+      });
+
+      if (res.ok && res.data?.text && res.data.text.trim().length > 120) {
+        const freshText = res.data.text.trim();
+        const updatedArticle: NewsArticle = {
+          ...article,
+          moodRewrites: {
+            ...((article as any).moodRewrites || {}),
+            [moodToUse]: freshText
+          }
+        } as any;
+        setSelectedArticle(updatedArticle);
+        setArticles(prev => prev.map(a => (a.id === article.id ? updatedArticle : a)));
+        onNotify(`${cfg.emoji} Article réécrit par l'IA en mode « ${cfg.label} » !`);
+      } else {
+        onNotify(`${cfg.emoji} Version « ${cfg.label} » appliquée instantanément.`);
+      }
+    } catch {
+      onNotify(`${cfg.emoji} Version « ${cfg.label} » appliquée instantanément.`);
+    } finally {
+      setIsRewritingMood(false);
+    }
+  };
+
   const [articles, setArticles] = useState<NewsArticle[]>(() => {
     try {
       const saved = localStorage.getItem("infoperso_articles");
@@ -1639,8 +1738,12 @@ export default function NewsFeed({
                 art.summary = `Compte-rendu factuel et données vérifiées concernant : ${art.title}.`;
                 art.content = `Les dernières dépêches et bilans transmis par les agences de presse régionales et nationales font état des avancées concernant ${art.title}.\n\nLes équipes et représentants institutionnels ont fait le point sur les projets opérationnels et le calendrier des prochaines étapes.\n\nDe nouvelles précisions sont attendues à la suite des prochaines concertations publiques.`;
               }
-              // Clean any raw JSON punctuation or truncated syntax from content
-              art.content = cleanArticleContent(art.content, art.title, art.summary);
+              // Clean any raw JSON punctuation or old canned boilerplate from content
+              if (hasCannedBoilerplate(art.content)) {
+                art = ensureArticleDeepData({ ...art, __isDeepEnriched: false } as any);
+              } else {
+                art.content = cleanArticleContent(art.content, art.title, art.summary);
+              }
               if (art.summary && typeof art.summary === "string" && (art.summary.includes('"status"') || art.summary.includes('"titre"') || art.summary.trim().startsWith("{") || art.summary.trim().startsWith("["))) {
                 art.summary = extractCleanReadableText(art.summary);
               }
@@ -3405,8 +3508,8 @@ Formatte avec des sauts de ligne clairs, des émoticônes utiles et un ton direc
       "## Règles éditoriales indispensables :\n" +
       "- DENSITÉ D'INFORMATION MAXIMALE : Ne fais JAMAIS un article court ou superficiel. Développe en profondeur les dimensions techniques, économiques, stratégiques, éthiques et sociétales.\n" +
       "- NOMMAGE EXPLICITE OBLIGATOIRE : Nomme TOUJOURS explicitement les entités (entreprises, filiales, institutions, personnalités clés, modèles exacts, dates précises, métriques chiffrées).\n" +
-      "- ÉCRITURE PROFONDÉMENT HUMAINE : Rédige comme un grand journaliste d'enquête doté d'une vraie sensibilité humaine, maniant avec justesse la gravité pour les drames ou l'humour fin et l'ironie pour les excès d'époque. BANNIS TOUTE numérotation de cabinet ('### 1.', '### 2.') et tout découpage scolaire ('Contexte', 'Analyse Approfondie', 'Impact Économique', 'Perspectives'). Soigne la cadence, les citations de terrain et les dilemmes réels.\n" +
-      "- Style : grand reportage d'investigation vivant, incarné, fluide et immersif.\n\n" +
+      "- ÉCRITURE PROFONDÉMENT HUMAINE : Rédige comme un vrai journaliste doté d'une plume singulière et naturelle, selon l'humeur choisie par le lecteur (" + getEditorialMoodConfig(editorialMood).label + " : " + getEditorialMoodConfig(editorialMood).description + ").\n" +
+      "- INTERDICTION STRICTE DES CLICHÉS : N'utilise JAMAIS les expressions 'Au-delà des communiqués froids', 'effets d'annonce', 'Loin des certitudes triomphantes', 'Loin des équations arides', ni aucune numérotation ('### 1.', '### 2.') ou découpage scolaire ('Contexte', 'Analyse Approfondie', 'Perspectives'). Chaque article doit avoir une attaque originale et directe.\n\n" +
       "## Format de sortie JSON STRICTEMENT OBLIGATOIRE :\n" +
       "Réponds UNIQUEMENT avec un objet JSON valide :\n" +
       "{\n" +
@@ -4393,30 +4496,46 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
   const [readerTheme, setReaderTheme] = useState<"slate" | "sepia" | "light" | "deep">("slate");
   const [zenMode, setZenMode] = useState(false);
 
-  // Audio reader
+  // Audio reader states (Google Speech / Gemini Neural TTS + Système HD)
   const [isPlayingSpeech, setIsPlayingSpeech] = useState(false);
-  const [speechSynth, setSpeechSynth] = useState<SpeechSynthesis | null>(null);
-  const [speechRate, setSpeechRate] = useState<number>(1.0);
-
+  const [isPausedSpeech, setIsPausedSpeech] = useState(false);
+  const [speechCurrentTime, setSpeechCurrentTime] = useState(0);
+  const [speechDuration, setSpeechDuration] = useState(0);
+  const [speechEngine, setSpeechEngine] = useState<AudioEngineType>("google_gemini");
+  const [speechVoiceLabel, setSpeechVoiceLabel] = useState<string>("Google Speech Studio HD");
+  const [showAudioPlayer, setShowAudioPlayer] = useState(false);
+  const [speechRate, setSpeechRate] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("infoperso_audio_speed");
+      return saved ? parseFloat(saved) || 1.0 : 1.0;
+    } catch {
+      return 1.0;
+    }
+  });
+  const [showVoiceModal, setShowVoiceModal] = useState<boolean>(false);
+  const [activeVoiceProfile, setActiveVoiceProfile] = useState<VoiceProfile>(() => getActiveVoiceProfile());
 
   // Quotes extractor
   const [extractedQuotes, setExtractedQuotes] = useState<string[]>([]);
   const [isExtractingQuotes, setIsExtractingQuotes] = useState(false);
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      setSpeechSynth(window.speechSynthesis);
-    }
-  }, []);
-
   // Stop speech synthesis if article closed & reset/enrich reader illustration
   useEffect(() => {
     if (!selectedArticle) {
-      if (speechSynth) speechSynth.cancel();
+      articleSpeechManager.stop();
       setIsPlayingSpeech(false);
+      setIsPausedSpeech(false);
+      setShowAudioPlayer(false);
+      setSpeechCurrentTime(0);
       setExtractedQuotes([]);
       setCurrentReaderPhoto(null);
     } else {
+      if (articleSpeechManager.getActiveArticleId() !== selectedArticle.id) {
+        articleSpeechManager.stop();
+        setIsPlayingSpeech(false);
+        setIsPausedSpeech(false);
+        setShowAudioPlayer(false);
+      }
       setCurrentReaderPhoto(null);
       setDeepDiveQuery("");
       setDeepDiveResponse(null);
@@ -4869,45 +4988,94 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     }
   };
 
-  // Voice text-to-speech reader
-  const handleVoiceRead = (article: NewsArticle) => {
-    if (!speechSynth) {
-      onNotify("⚠️ La synthèse vocale n'est pas supportée par votre navigateur.");
+  // Voice text-to-speech reader (Moteur Google Speech / Gemini Studio HD + Repli Système)
+  const handleVoiceRead = async (article: NewsArticle) => {
+    if (isPlayingSpeech && !isPausedSpeech) {
+      articleSpeechManager.pause();
+      setIsPausedSpeech(true);
+      onNotify("⏸️ Lecture audio mise en pause.");
       return;
     }
 
-    if (isPlayingSpeech) {
-      speechSynth.cancel();
-      setIsPlayingSpeech(false);
-      onNotify("Lecture vocale interrompue.");
-    } else {
-      speechSynth.cancel();
-      const textToRead = `${article.title}. Publié par ${article.source}. ${article.content}`;
-      const utterance = new SpeechSynthesisUtterance(textToRead);
-      utterance.lang = "fr-FR";
-      
-      // Theme-specific speech rate and pitch
-      utterance.rate = speechRate || 1.0;
-      if (isWarm) {
-        utterance.pitch = 0.82; // deep warm tone
-      } else if (isCyber) {
-        utterance.pitch = 1.15; // slightly high/metallic
-      } else if (isFun) {
-        utterance.pitch = 1.25;
-      } else { // pro
-        utterance.pitch = 0.95; // clear presenter voice
-      }
-
-      utterance.onend = () => {
-        setIsPlayingSpeech(false);
-      };
-      utterance.onerror = () => {
-        setIsPlayingSpeech(false);
-      };
-      setIsPlayingSpeech(true);
-      speechSynth.speak(utterance);
-      onNotify("🔊 Lecture de l'article en cours...");
+    if (isPlayingSpeech && isPausedSpeech) {
+      articleSpeechManager.resume();
+      setIsPausedSpeech(false);
+      onNotify("▶️ Reprise de la lecture audio.");
+      return;
     }
+
+    setShowAudioPlayer(true);
+    setIsPlayingSpeech(true);
+    setIsPausedSpeech(false);
+    onNotify(`🎙️ Préparation de la voix de ${activeVoiceProfile.name}...`);
+
+    await articleSpeechManager.play({
+      article: {
+        ...article,
+        content: formatArticleWithMood(article, editorialMood)
+      },
+      speed: speechRate,
+      voiceProfile: activeVoiceProfile,
+      voiceGender: activeVoiceProfile.gender === "male" ? "male" : "female",
+      apiKey: (apiKeys as any)?.gemini || undefined,
+      onTimeUpdate: (current, total) => {
+        setSpeechCurrentTime(current);
+        setSpeechDuration(total);
+      },
+      onStart: (engine, voiceLabel) => {
+        setIsPlayingSpeech(true);
+        setIsPausedSpeech(false);
+        setSpeechEngine(engine);
+        setSpeechVoiceLabel(voiceLabel);
+        setShowAudioPlayer(true);
+        onNotify(`🔊 Lecture en cours : ${voiceLabel} (${speechRate}x)`);
+      },
+      onEnd: () => {
+        setIsPlayingSpeech(false);
+        setIsPausedSpeech(false);
+        setSpeechCurrentTime(0);
+        onNotify("✅ Lecture audio terminée.");
+      },
+      onError: (err) => {
+        setIsPlayingSpeech(false);
+        setIsPausedSpeech(false);
+        onNotify(`⚠️ ${err}`);
+      }
+    });
+  };
+
+  const handleVoiceChanged = (newVoice: VoiceProfile) => {
+    setActiveVoiceProfile(newVoice);
+    if (isPlayingSpeech && selectedArticle) {
+      articleSpeechManager.stop();
+      setIsPlayingSpeech(false);
+      setIsPausedSpeech(false);
+      setTimeout(() => {
+        handleVoiceRead(selectedArticle);
+      }, 150);
+    }
+  };
+
+  const handleStopSpeech = () => {
+    articleSpeechManager.stop();
+    setIsPlayingSpeech(false);
+    setIsPausedSpeech(false);
+    setShowAudioPlayer(false);
+    setSpeechCurrentTime(0);
+    onNotify("⏹️ Lecture audio arrêtée.");
+  };
+
+  const handleChangeSpeechRate = (newRate: number) => {
+    setSpeechRate(newRate);
+    try {
+      localStorage.setItem("infoperso_audio_speed", String(newRate));
+    } catch {}
+    articleSpeechManager.setSpeed(newRate);
+    onNotify(`⚡ Vitesse de lecture réglée sur ${newRate}x`);
+  };
+
+  const handleSeekSpeech = (deltaSeconds: number) => {
+    articleSpeechManager.seekBy(deltaSeconds);
   };
 
   // Next / Previous article handlers for foldable navigation & keyboards
@@ -5940,6 +6108,41 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
       )}
 
 
+
+      {/* BARRE DES 7 RÉGLAGES D'HUMEUR D'ÉCRITURE (Plume Humaine : Humain, Humoristique, Sarcastique, Enquête, Poétique, Cash, Philosophe) */}
+      <div className={`mb-2.5 px-3 py-2 rounded-xl border flex flex-wrap items-center justify-between gap-2 transition-all ${
+        isDark ? "bg-slate-900/75 border-slate-800 text-slate-200" : "bg-white border-slate-200 text-slate-800 shadow-2xs"
+      }`}>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-xs font-black uppercase tracking-wider text-indigo-500 dark:text-indigo-400 flex items-center gap-1">
+            <span>🎭</span>
+            <span>Humeur de plume (7 styles) :</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 flex-1 sm:justify-end">
+          {EDITORIAL_MOODS.map((m) => {
+            const isActive = editorialMood === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleSelectEditorialMood(m.id)}
+                title={m.description}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1 border ${
+                  isActive
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-xs scale-[1.02]"
+                    : isDark
+                      ? "bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                }`}
+              >
+                <span>{m.emoji}</span>
+                <span>{m.shortLabel}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Active Filter Chips Summary (if any active) */}
       {activeFiltersCount > 0 && (
@@ -6985,21 +7188,62 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                     <span className="hidden sm:inline">Photo</span>
                   </button>
 
-                  {/* Audio Speech */}
-                  <button
-                    type="button"
-                    onClick={() => handleVoiceRead(selectedArticle)}
-                    className={`shrink-0 p-1 sm:p-1.5 rounded-md border cursor-pointer transition-colors ${
-                      isPlayingSpeech 
-                        ? "bg-rose-500/20 text-rose-500 border-rose-500/30 animate-pulse" 
-                        : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100" :
-                          isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
-                          "bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-950"
-                    }`}
-                    title="Lire à haute voix"
-                  >
-                    {isPlayingSpeech ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                  </button>
+                  {/* Audio Speech, Voice Selector & Speed Badge */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleVoiceRead(selectedArticle)}
+                      className={`shrink-0 flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border cursor-pointer transition-all ${
+                        isPlayingSpeech 
+                          ? "bg-indigo-600 text-white border-indigo-500 shadow-sm" 
+                          : isDark ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white" :
+                            isFun ? "bg-white border border-black text-black hover:bg-yellow-100" :
+                            "bg-zinc-50 border-zinc-200 text-zinc-700 hover:text-zinc-950"
+                      }`}
+                      title={isPlayingSpeech ? (isPausedSpeech ? "Reprendre la lecture vocale" : "Mettre en pause") : `Écouter l'article avec la voix de ${activeVoiceProfile.name}`}
+                    >
+                      {isPlayingSpeech && !isPausedSpeech ? (
+                        <Pause className="w-3 h-3 fill-current" />
+                      ) : (
+                        <Volume2 className="w-3 h-3" />
+                      )}
+                      <span className="hidden sm:inline text-[10px] sm:text-[11px] font-bold">
+                        {isPlayingSpeech ? (isPausedSpeech ? "Reprendre" : "Pause") : "Écouter"}
+                      </span>
+                    </button>
+
+                    {/* Bouton Choix & Personnalisation de la Voix */}
+                    <button
+                      type="button"
+                      onClick={() => setShowVoiceModal(true)}
+                      className={`shrink-0 flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border text-[10px] sm:text-[11px] font-bold cursor-pointer transition-all ${
+                        activeVoiceProfile.id === "raspy_rock" || activeVoiceProfile.id === "doully"
+                          ? "bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30 font-black"
+                          : isDark ? "bg-zinc-900 border-zinc-800 text-indigo-400 hover:bg-zinc-800" : "bg-zinc-50 border-zinc-200 text-indigo-600 hover:bg-zinc-100"
+                      }`}
+                      title={`Personnaliser la voix (actuellement : ${activeVoiceProfile.name})`}
+                    >
+                      <span>{activeVoiceProfile.avatarEmoji}</span>
+                      <span className="hidden md:inline font-bold">{activeVoiceProfile.name}</span>
+                      <span className="text-[9px] opacity-75">▾</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const presets = [0.75, 1.0, 1.25, 1.5, 2.0];
+                        const curIdx = presets.findIndex((p) => Math.abs(p - speechRate) < 0.05);
+                        const nextIdx = (curIdx + 1) % presets.length;
+                        handleChangeSpeechRate(presets[nextIdx]);
+                      }}
+                      className={`shrink-0 px-1.5 py-0.5 sm:py-1 rounded-md border text-[10px] sm:text-[11px] font-mono font-bold cursor-pointer transition-colors ${
+                        isDark ? "bg-zinc-900 border-zinc-800 text-indigo-400 hover:bg-zinc-800" : "bg-zinc-50 border-zinc-200 text-indigo-600 hover:bg-zinc-100"
+                      }`}
+                      title="Vitesse de lecture vocale (cliquer pour cycler : 0.75x, 1x, 1.25x, 1.5x, 2x)"
+                    >
+                      {speechRate}x
+                    </button>
+                  </div>
 
                   {/* Zen Mode */}
                   <button
@@ -7092,6 +7336,30 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                 }}
                 onScroll={handleReaderScroll}
               >
+                {/* Lecteur Audio Haute-Fidélité Voix Naturelle Google / Système */}
+                {(showAudioPlayer || isPlayingSpeech || isPausedSpeech) && (
+                  <div className="sticky top-0 z-20 pb-2">
+                    <ArticleAudioPlayer
+                      isPlaying={isPlayingSpeech}
+                      isPaused={isPausedSpeech}
+                      currentTime={speechCurrentTime}
+                      duration={speechDuration}
+                      speed={speechRate}
+                      engine={speechEngine}
+                      voiceLabel={speechVoiceLabel}
+                      activeVoiceName={activeVoiceProfile.name}
+                      activeVoiceEmoji={activeVoiceProfile.avatarEmoji}
+                      isDark={isDark}
+                      onPlay={() => handleVoiceRead(selectedArticle)}
+                      onPause={() => handleVoiceRead(selectedArticle)}
+                      onStop={handleStopSpeech}
+                      onSeek={handleSeekSpeech}
+                      onChangeSpeed={handleChangeSpeechRate}
+                      onOpenVoiceCustomizer={() => setShowVoiceModal(true)}
+                    />
+                  </div>
+                )}
+
                 {/* Clean Metadata Header Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
                   <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 text-xs font-semibold">
@@ -7204,79 +7472,74 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       </div>
                     )}
 
-                    {/* Frise chronologique contextuelle : Mini-bloc rétrospectif « Repères temporels » (situer l'événement dans le temps long) */}
+                    {/* SÉLECTEUR INTERACTIF DES 7 HUMEURS D'ÉCRITURE DANS L'ARTICLE */}
                     {(() => {
-                      const reperes = getArticleReperesTemporels(selectedArticle);
-                      if (!reperes || reperes.length === 0) return null;
-
+                      const activeMoodCfg = getEditorialMoodConfig(editorialMood);
                       return (
-                        <div className={`my-2.5 p-3 rounded-xl border transition-all ${
-                          isDark
-                            ? "bg-zinc-900/60 border-zinc-800 text-zinc-300"
-                            : "bg-amber-50/60 border-amber-200/80 text-amber-950"
+                        <div className={`my-3 p-3.5 rounded-xl border space-y-2.5 transition-all ${
+                          isDark ? "bg-zinc-900/80 border-zinc-800" : "bg-slate-50 border-slate-200 shadow-2xs"
                         }`}>
-                          <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-current/15">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              <span className="text-xs font-bold uppercase tracking-wider">
-                                Repères temporels • Situer l'événement dans le temps long
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide border ${activeMoodCfg.badgeClass}`}>
+                                <span>{activeMoodCfg.emoji}</span>
+                                <span>Plume : {activeMoodCfg.label}</span>
+                              </span>
+                              <span className="text-xs opacity-80">
+                                {activeMoodCfg.description}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono opacity-70">
-                              {reperes.length} jalons majeurs
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleAiRewriteInMood(selectedArticle, editorialMood)}
+                              disabled={isRewritingMood}
+                              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                              title="Demander à l'IA de rédiger une version 100% inédite dans cette humeur"
+                            >
+                              <Sparkles className={`w-3 h-3 ${isRewritingMood ? "animate-spin" : ""}`} />
+                              <span>{isRewritingMood ? "Rédaction en cours..." : "✨ Plume IA sur-mesure"}</span>
+                            </button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            {reperes.map((rep, rIdx) => (
-                              <div key={rIdx} className="flex flex-col relative pl-2.5 border-l-2 border-amber-500/40 dark:border-amber-400/40">
-                                <span className="font-mono font-bold text-xs text-amber-700 dark:text-amber-300">
-                                  {rep.date}
-                                </span>
-                                <span className="font-semibold text-xs leading-snug mt-0.5">
-                                  {rep.titre}
-                                </span>
-                                <p className="text-[11px] opacity-80 leading-snug mt-1">
-                                  {rep.description}
-                                </p>
-                              </div>
-                            ))}
+
+                          {/* Les 7 boutons d'humeur */}
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-700/15">
+                            <span className="text-[10px] font-mono uppercase opacity-65 mr-1">
+                              Choisir l'humeur (7 réglages) :
+                            </span>
+                            {EDITORIAL_MOODS.map((m) => {
+                              const isCurrent = editorialMood === m.id;
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => handleSelectEditorialMood(m.id)}
+                                  title={m.description}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                                    isCurrent
+                                      ? "bg-indigo-600 text-white border-indigo-500 shadow-xs scale-[1.02]"
+                                      : isDark
+                                        ? "bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+                                        : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                                  }`}
+                                >
+                                  <span>{m.emoji}</span>
+                                  <span>{m.label}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       );
                     })()}
 
-                    {/* REGISTRE ÉMOTIONNEL & COMPAS HUMAIN DU RÉCIT (Gravité, Humour, Sensibilité) */}
-                    {(() => {
-                      const tone = getArticleHumanTone(selectedArticle);
-                      return (
-                        <div className={`my-3 p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all ${
-                          isDark ? "bg-zinc-900/70 border-zinc-800" : "bg-slate-50 border-slate-200 shadow-2xs"
-                        }`}>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide border ${tone.badgeClass}`}>
-                              <span>{tone.emoji}</span>
-                              <span>{tone.toneBadge}</span>
-                            </span>
-                            <span className="italic text-xs opacity-85 font-serif">
-                              « {tone.humanQuote} »
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono opacity-70 shrink-0">
-                            <span>Tonalité :</span>
-                            <span className="font-bold text-indigo-400">{tone.sentimentLabel}</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* CORPS DU RÉCIT : LECTURE FLUIDE, HUMAINE ET IMMERSIVE */}
+                    {/* CORPS DU RÉCIT : LECTURE FLUIDE, HUMAINE ET IMMERSIVE SELON L'HUMEUR CHOISIE */}
                     <div className="pt-1">
                       <div 
                         className="font-sans leading-relaxed text-sm sm:text-base space-y-4 transition-all duration-300 relative"
                         style={{ fontSize: `${fontScale * 110}%` }}
                       >
                         {(() => {
-                          const cleanContent = cleanArticleContent(selectedArticle.content, selectedArticle.title, selectedArticle.summary);
+                          const cleanContent = formatArticleWithMood(selectedArticle, editorialMood);
                           if (isBionicReading) {
                             return (
                               <div className="space-y-4">
@@ -7358,9 +7621,10 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                       <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
                         <button
                           onClick={() => {
-                            const fullStory = `${selectedArticle.title}\n\n${selectedArticle.summary || ""}\n\n${cleanArticleContent(selectedArticle.content, selectedArticle.title, selectedArticle.summary)}\n\nSource : ${selectedArticle.source} — InfoPerso`;
+                            const moodCfg = getEditorialMoodConfig(editorialMood);
+                            const fullStory = `${selectedArticle.title} [Humeur : ${moodCfg.label}]\n\n${formatArticleWithMood(selectedArticle, editorialMood)}\n\nSource : ${selectedArticle.source} — InfoPerso`;
                             navigator.clipboard.writeText(fullStory);
-                            onNotify("📋 Récit complet copié dans le presse-papier en 1 clic !");
+                            onNotify(`📋 Récit complet (${moodCfg.shortLabel}) copié dans le presse-papier en 1 clic !`);
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                             isDark
@@ -8648,14 +8912,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
                     isPlayingSpeech={isPlayingSpeech}
                     onToggleSpeech={() => handleVoiceRead(selectedArticle)}
                     speechRate={speechRate}
-                    onChangeSpeechRate={(r) => {
-                      setSpeechRate(r);
-                      if (isPlayingSpeech && speechSynth) {
-                        speechSynth.cancel();
-                        setIsPlayingSpeech(false);
-                      }
-                      onNotify(`Vitesse de lecture vocale : ${r}x`);
-                    }}
+                    onChangeSpeechRate={handleChangeSpeechRate}
                     onNextArticle={handleNextArticle}
                     onPrevArticle={handlePrevArticle}
                     hasNext={hasNextArticle}
@@ -9463,6 +9720,15 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
         </div>,
         document.body
       )}
+
+      {/* Modal Studio Vocal & Personnalisation de Voix (Archétypes, Enregistrement 15-20s, Proches) */}
+      <VoiceCustomizerModal
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        isDark={isDark}
+        onNotify={onNotify}
+        onVoiceChanged={handleVoiceChanged}
+      />
     </div>
   );
 }

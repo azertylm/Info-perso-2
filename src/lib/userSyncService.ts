@@ -5,7 +5,7 @@ import {
   onSnapshot, 
   Unsubscribe 
 } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType, isFirebaseConfigured } from "./firebase";
+import { db, auth, handleFirestoreError, OperationType, isFirebaseConfigured } from "./firebase";
 
 export type DeviceType = "pc" | "tablet" | "mobile";
 
@@ -71,7 +71,7 @@ export function listenToUserProfile(
   uid: string, 
   onUpdate: (data: UserSyncProfile | null) => void
 ): Unsubscribe {
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser || auth.currentUser.uid !== uid) {
     try {
       const stored = localStorage.getItem(`infoperso_user_sync_${uid}`);
       onUpdate(stored ? JSON.parse(stored) : null);
@@ -95,9 +95,10 @@ export function listenToUserProfile(
     (error) => {
       console.warn("Firestore user sync warning:", error);
       try {
-        handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+        const stored = localStorage.getItem(`infoperso_user_sync_${uid}`);
+        onUpdate(stored ? JSON.parse(stored) : null);
       } catch {
-        // Suppress unhandled rethrow in snapshot
+        onUpdate(null);
       }
     }
   );
@@ -149,7 +150,7 @@ export async function saveUserProfileNow(
     console.warn("Local user sync save error:", e);
   }
 
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser || auth.currentUser.uid !== uid) {
     return;
   }
 
@@ -158,7 +159,7 @@ export async function saveUserProfileNow(
   try {
     await setDoc(userDocRef, payload, { merge: true });
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `users/${uid}`);
+    console.warn("Firestore user sync save warning:", error);
   }
 }
 
@@ -166,7 +167,7 @@ export async function saveUserProfileNow(
  * Loads the current user profile from Firestore once.
  */
 export async function fetchUserProfileOnce(uid: string): Promise<UserSyncProfile | null> {
-  if (!isFirebaseConfigured) {
+  if (!isFirebaseConfigured || !auth.currentUser || auth.currentUser.uid !== uid) {
     try {
       const stored = localStorage.getItem(`infoperso_user_sync_${uid}`);
       return stored ? JSON.parse(stored) : null;
@@ -180,7 +181,12 @@ export async function fetchUserProfileOnce(uid: string): Promise<UserSyncProfile
     const snap = await getDoc(userDocRef);
     return snap.exists() ? (snap.data() as UserSyncProfile) : null;
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, `users/${uid}`);
-    return null;
+    console.warn("Firestore fetchUserProfileOnce warning:", error);
+    try {
+      const stored = localStorage.getItem(`infoperso_user_sync_${uid}`);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   }
 }

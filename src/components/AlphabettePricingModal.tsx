@@ -145,6 +145,8 @@ Site officiel : http://alphabette.fr`;
         error?: string;
         plan?: string;
         duration?: string;
+        isLifetime?: boolean;
+        pioneerNumber?: number;
       }>("/api/alphabette/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,10 +158,25 @@ Site officiel : http://alphabette.fr`;
         setActivePlan(planAssigned);
         localStorage.setItem("alphabette_user_plan", planAssigned);
         localStorage.setItem("alphabette_access_code", code);
-        setCodeSuccessMsg(data.message || "Code privilège validé avec succès (1 an d'accès offert) !");
+        if (data.isLifetime) {
+          localStorage.setItem("alphabette_lifetime_pioneer", "true");
+        }
+        window.dispatchEvent(new CustomEvent("alphabette_plan_updated"));
+        window.dispatchEvent(new CustomEvent("alphabette_quota_updated"));
+
+        setCodeSuccessMsg(
+          data.message ||
+            (data.isLifetime
+              ? "🎉 Code Pionnier validé ! Votre accès à InfoPerso est Gratuit à Vie !"
+              : "Code privilège validé avec succès (1 an d'accès offert) !")
+        );
         setAccessCode("");
         if (onNotify) {
-          onNotify("🔑 Code privilège activé ! Accès complet accordé.");
+          onNotify(
+            data.isLifetime
+              ? `🏆 Code Pionnier #${data.pioneerNumber || ""} activé : Accès Gratuit à Vie !`
+              : "🔑 Code privilège activé ! Accès complet accordé."
+          );
         }
       } else {
         const errMsg = data?.error || error || "Code d'accès invalide ou déjà consommé.";
@@ -518,11 +535,11 @@ Site officiel : http://alphabette.fr`;
               <div className="flex items-center gap-2">
                 <Gift className="w-5 h-5 text-amber-400" />
                 <h4 className={`text-sm font-black uppercase tracking-wider ${isDark ? "text-white" : "text-slate-950"}`}>
-                  Vous avez un code privilège ou une invitation ?
+                  Code Pionnier (1 à 300) ou Code Privilège
                 </h4>
               </div>
-              <span className={`text-xs font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                Activation instantanée (1 an offert)
+              <span className={`text-xs font-semibold ${isDark ? "text-emerald-400" : "text-emerald-700"}`}>
+                infoperso1 à infoperso300 : Gratuit à vie (usage unique)
               </span>
             </div>
 
@@ -531,7 +548,7 @@ Site officiel : http://alphabette.fr`;
                 type="text"
                 value={accessCode}
                 onChange={(e) => setAccessCode(e.target.value)}
-                placeholder="Entrez votre code (ex: AMIS-2026, ALPHABETTE)..."
+                placeholder="Ex: infoperso1 à infoperso300, AMIS-2026..."
                 className={`flex-1 rounded-xl px-4 py-3 text-sm uppercase font-mono font-bold outline-none transition-colors border-2 ${
                   isDark
                     ? "bg-slate-900 border-slate-600 text-white placeholder:text-slate-400 focus:border-indigo-400"

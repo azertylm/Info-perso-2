@@ -202,7 +202,7 @@ export default function MultiChat({
         setIsListening(true);
         onNotify("🎙️ À l'écoute... Parlez maintenant.");
       } catch (err) {
-        console.error("Erreur micro :", err);
+        console.warn("Reconnaissance vocale non disponible ou refusée :", err);
       }
     }
   };

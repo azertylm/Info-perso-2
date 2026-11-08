@@ -87,7 +87,17 @@ export default function UserAuth({
     setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-      onNotify("Connexion Google réussie ! 🎉");
+      // Initialize 7-day free trial on managed Mistral AI key if not already set
+      if (!localStorage.getItem("alphabette_trial_started_at")) {
+        const now = String(Date.now());
+        localStorage.setItem("alphabette_user_registered_at", now);
+        localStorage.setItem("alphabette_trial_started_at", now);
+        localStorage.setItem("alphabette_user_plan", "trial");
+        window.dispatchEvent(new CustomEvent("alphabette_plan_updated"));
+        window.dispatchEvent(new CustomEvent("alphabette_quota_updated"));
+      }
+
+      onNotify("Connexion Google réussie ! Essai 7 jours activé 🚀");
       if (onClose) onClose();
     } catch (err: any) {
       console.error(err);
@@ -118,10 +128,18 @@ export default function UserAuth({
           await updateProfile(signedUpUser, { displayName });
         }
 
+        // Initialize 7-day free trial on managed Mistral AI key
+        const now = String(Date.now());
+        localStorage.setItem("alphabette_user_registered_at", now);
+        localStorage.setItem("alphabette_trial_started_at", now);
+        localStorage.setItem("alphabette_user_plan", "trial");
+        window.dispatchEvent(new CustomEvent("alphabette_plan_updated"));
+        window.dispatchEvent(new CustomEvent("alphabette_quota_updated"));
+
         // Send Email Verification
         await sendEmailVerification(signedUpUser);
         setVerificationSent(true);
-        onNotify("Compte créé ! E-mail de vérification envoyé. ✉️");
+        onNotify("Compte créé ! Essai gratuit de 7 jours activé immédiatement 🚀");
       } else {
         // Sign In
         await signInWithEmailAndPassword(auth, email, password);
@@ -489,6 +507,24 @@ export default function UserAuth({
           Créer un compte
         </button>
       </div>
+
+      {isSignUp && (
+        <div className={`p-3.5 rounded-xl border text-left transition-all ${
+          isSobre ? isDark ? "bg-zinc-900/70 border-zinc-800 text-zinc-300" : "bg-zinc-100 border-zinc-300 text-zinc-800" :
+          isWarm ? isDark ? "bg-[#251e18] border-amber-900/40 text-amber-100" : "bg-[#f5ede0] border-amber-900/20 text-amber-900" :
+          isCyber ? isDark ? "bg-cyan-950/20 border-cyan-500/40 text-cyan-200" : "bg-cyan-50 border-cyan-400 text-black" :
+          isFun ? "bg-yellow-200 border-2 border-black rounded-xl text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" :
+          isDark ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-200" : "bg-emerald-50 border-emerald-300 text-emerald-900"
+        }`}>
+          <div className="flex items-center gap-2 mb-1.5 font-bold text-xs">
+            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Essai gratuit de 7 jours offert sans carte bancaire</span>
+          </div>
+          <p className="text-[11px] opacity-85 leading-relaxed">
+            Dès votre inscription, profitez immédiatement de <strong>20 requêtes IA/jour</strong> sur notre clé managée souveraine Mistral AI. À l’issue des 7 jours, continuez soit à <strong>15 €/an</strong>, soit sans limite avec vos propres clés API (BYOK). Vos données restent strictement confidentielles.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-950/30 border border-red-500/30 text-red-200 p-3.5 rounded-xl flex items-start gap-2.5 text-xs sm:text-sm">

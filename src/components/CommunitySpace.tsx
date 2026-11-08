@@ -855,7 +855,9 @@ export default function CommunitySpace({
       console.error(err);
       onNotify("Erreur lors de la publication : " + err.message);
       if (isFirebaseConfigured) {
-        handleFirestoreError(err, OperationType.CREATE, "proposed_articles");
+        try {
+          handleFirestoreError(err, OperationType.CREATE, "proposed_articles");
+        } catch (_) {}
       }
     } finally {
       setSubmitting(false);

@@ -56,8 +56,13 @@ export async function getSubscription(uid: string): Promise<SubscriptionStatus |
     }
     return null;
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, path);
-    return null;
+    console.warn("Firestore getSubscription warning:", error);
+    try {
+      const stored = localStorage.getItem(localKey);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -96,7 +101,13 @@ export function listenToSubscription(
       }
     },
     (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      console.warn("Firestore subscription listener warning:", error);
+      try {
+        const stored = localStorage.getItem(localKey);
+        onUpdate(stored ? JSON.parse(stored) : DEFAULT_FREE_STATUS(userEmail));
+      } catch {
+        onUpdate(DEFAULT_FREE_STATUS(userEmail));
+      }
     }
   );
 }
@@ -142,11 +153,19 @@ export async function subscribeUser(
   const path = `subscriptions/${targetUid}`;
   try {
     const docRef = doc(db, "subscriptions", targetUid);
-    await setDoc(docRef, subscriptionData);
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists() && snap.data()?.createdAt) {
+        subscriptionData.createdAt = snap.data().createdAt;
+      }
+    } catch {
+      // ignore
+    }
+    await setDoc(docRef, subscriptionData, { merge: true });
     return subscriptionData;
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
+    console.warn("Firestore subscription save error:", error);
+    return subscriptionData;
   }
 }
 
@@ -182,11 +201,19 @@ export async function simulateExpiry(uid: string, email: string): Promise<Subscr
   const path = `subscriptions/${targetUid}`;
   try {
     const docRef = doc(db, "subscriptions", targetUid);
-    await setDoc(docRef, subscriptionData);
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists() && snap.data()?.createdAt) {
+        subscriptionData.createdAt = snap.data().createdAt;
+      }
+    } catch {
+      // ignore
+    }
+    await setDoc(docRef, subscriptionData, { merge: true });
     return subscriptionData;
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
+    console.warn("Firestore subscription save error:", error);
+    return subscriptionData;
   }
 }
 
@@ -212,11 +239,19 @@ export async function resetToFree(uid: string, email: string): Promise<Subscript
   const path = `subscriptions/${targetUid}`;
   try {
     const docRef = doc(db, "subscriptions", targetUid);
-    await setDoc(docRef, subscriptionData);
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists() && snap.data()?.createdAt) {
+        subscriptionData.createdAt = snap.data().createdAt;
+      }
+    } catch {
+      // ignore
+    }
+    await setDoc(docRef, subscriptionData, { merge: true });
     return subscriptionData;
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
+    console.warn("Firestore subscription reset error:", error);
+    return subscriptionData;
   }
 }
 
@@ -271,11 +306,19 @@ export async function activateFounderPlan(
   const path = `subscriptions/${targetUid}`;
   try {
     const docRef = doc(db, "subscriptions", targetUid);
-    await setDoc(docRef, founderData);
+    try {
+      const snap = await getDoc(docRef);
+      if (snap.exists() && snap.data()?.createdAt) {
+        founderData.createdAt = snap.data().createdAt;
+      }
+    } catch {
+      // ignore
+    }
+    await setDoc(docRef, founderData, { merge: true });
     return founderData;
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
+    console.warn("Firestore founder save error:", error);
+    return founderData;
   }
 }
 
