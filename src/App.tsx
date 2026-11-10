@@ -1669,7 +1669,7 @@ export default function App() {
                   className="hover:text-amber-400 transition-colors font-medium cursor-pointer flex items-center gap-1"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Abonnements Suite (39€ / 59€ / 99€ / 199€)
+                  Tarifs Alphabette (15 € · 40 € par an)
                 </button>
                 <span className="opacity-40">•</span>
                 <button

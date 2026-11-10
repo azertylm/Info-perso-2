@@ -505,110 +505,15 @@ export default function UserProfileDrawer({
                           </span>
                         </div>
                         <p className={`text-[10px] ${isDark ? "text-zinc-300" : "text-zinc-700 font-medium"}`}>
-                          Débloquez l'accès premium intégral sur **cette application** ainsi que sur l'ensemble de vos **remixes d'applications** actuels et futurs.
+                          Vous utilisez Info Perso librement.
                         </p>
                       </div>
 
-                      {/* Expandable Simulated Credit Card Form */}
-                      {!isSubscribing ? (
-                        <button
-                          onClick={() => setIsSubscribing(true)}
-                          className={`w-full py-2 text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
-                            isSobre ? "bg-zinc-950 text-white" :
-                            isWarm ? "bg-amber-900 text-white" :
-                            isCyber ? "bg-cyan-500 text-black font-mono" :
-                            isFun ? "bg-fuchsia-400 border-3 border-black text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" :
-                            "bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md shadow-amber-500/10"
-                          }`}
-                        >
-                          <Crown className="w-3.5 h-3.5" />
-                          Devenir Premium Multi-App (Promo: 10€ les 3 mois, puis 5€/mois)
-                        </button>
-                      ) : (
-                        <form
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            if (!cardNumber || !cardExpiry || !cardCvc) {
-                              onNotify("⚠️ Veuillez renseigner toutes les informations bancaires.");
-                              return;
-                            }
-                            setSimLoading(true);
-                            try {
-                              await subscribeUser(
-                                currentUser.uid,
-                                currentUser.email || "",
-                                "InfoPerso Master"
-                              );
-                              onNotify("👑 Félicitations ! Votre abonnement unique (10€ pour 3 mois, puis 5€/mois) est actif sur l'ensemble de vos remixes ! 🎉");
-                              setIsSubscribing(false);
-                              setCardNumber("");
-                              setCardExpiry("");
-                              setCardCvc("");
-                            } catch (err: any) {
-                              onNotify("Erreur de paiement : " + err.message);
-                            } finally {
-                              setSimLoading(false);
-                            }
-                          }}
-                          className="space-y-3 bg-black/15 p-3 rounded border border-zinc-800/10 mt-1"
-                        >
-                          <div className="flex items-center justify-between pb-1 border-b border-zinc-850/10">
-                            <span className="text-[10px] font-bold tracking-wide uppercase text-zinc-400 flex items-center gap-1">
-                              <CreditCard className="w-3.5 h-3.5 text-indigo-400" /> Passerelle de Paiement Sécurisée
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setIsSubscribing(false)}
-                              className="text-[9px] hover:underline text-zinc-400"
-                            >
-                              Annuler
-                            </button>
-                          </div>
-
-                          <div className="space-y-2 text-left">
-                            <div>
-                              <label className="block text-[8px] uppercase tracking-wider opacity-75 mb-0.5">Numéro de Carte Simulé</label>
-                              <input
-                                type="text"
-                                placeholder="4242 •••• •••• 4242"
-                                value={cardNumber}
-                                onChange={(e) => setCardNumber(e.target.value)}
-                                className={`w-full bg-zinc-950/60 border border-zinc-800 rounded px-2 py-1 text-[11px] text-white focus:outline-hidden focus:border-amber-500`}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-[8px] uppercase tracking-wider opacity-75 mb-0.5">Expiration</label>
-                                <input
-                                  type="text"
-                                  placeholder="MM/AA"
-                                  value={cardExpiry}
-                                  onChange={(e) => setCardExpiry(e.target.value)}
-                                  className={`w-full bg-zinc-950/60 border border-zinc-800 rounded px-2 py-1 text-[11px] text-white focus:outline-hidden focus:border-amber-500`}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[8px] uppercase tracking-wider opacity-75 mb-0.5">CVC</label>
-                                <input
-                                  type="text"
-                                  placeholder="123"
-                                  value={cardCvc}
-                                  onChange={(e) => setCardCvc(e.target.value)}
-                                  className={`w-full bg-zinc-950/60 border border-zinc-800 rounded px-2 py-1 text-[11px] text-white focus:outline-hidden focus:border-amber-500`}
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          <button
-                            type="submit"
-                            disabled={simLoading}
-                            className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                          >
-                            {simLoading ? "Validation en cours..." : "Simuler Paiement Unique"}
-                          </button>
-                        </form>
-                      )}
+                      {/* Aucun paiement ici : le paiement en ligne n'est pas encore ouvert. */}
+                      <p className={`text-[11px] leading-relaxed rounded-lg p-2 ${isDark ? "bg-black/20 text-zinc-200" : "bg-white text-zinc-800 border border-zinc-200"}`}>
+                        Le paiement en ligne n'est pas encore ouvert : aujourd'hui, Info Perso s'utilise librement.
+                        Tarifs prévus : 15 € par an pour Info Perso, 40 € par an pour toutes les applications Alphabette.
+                      </p>
                     </div>
                   )}
                 </div>

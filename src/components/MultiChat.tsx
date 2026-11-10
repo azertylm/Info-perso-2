@@ -132,8 +132,8 @@ export default function MultiChat({
       `- ACTIONS SENSIBLES : Pour toute action critique ou irréversible (effacement, validation légale, souscription financière), demande d'abord une confirmation claire à l'utilisateur avant d'exécuter la fonction.\n` +
       `- POLITIQUE TARIFAIRE SUITE ALPHABETTE (DYNAMIQUE) :\n` +
       `  * Essai gratuit : 7 jours d'accès complet offerts sur clé Mistral managée.\n` +
-      `  * Application individuelle : Formule Autonome (BYOK) à 39 € / an ou Formule Confort (managé) à 59 € / an.\n` +
-      `  * Pass Bouquet Alphabette (15 applications) : Bouquet BYOK à 99 € / an ou Bouquet Intégral à 199 € / an.\n` +
+      `  * Info Perso seule : 15 € TTC / an. Toutes les applications Alphabette : 40 € TTC / an.\n` +
+      `  * Le paiement en ligne n'est pas encore ouvert : aujourd'hui l'application s'utilise librement. Ne jamais simuler un paiement.\n` +
       `  * Codes privilèges / amis : vérifiés en temps réel à usage unique via POST http://alphabette.fr/api/verify-code.\n` +
       `  * Hub central : http://alphabette.fr\n` +
       `- RÈGLE DES RÉSUMÉS : À chaque fois qu'un résumé ou une synthèse est demandée, fournis le texte dans un bloc de code copiable (Markdown/text) pour permettre la copie en 1 clic.`

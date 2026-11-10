@@ -119,7 +119,7 @@ export async function subscribeUser(
   uid: string,
   email: string,
   appSource: string,
-  planName: string = "Premium Multi-App (10€/3mois puis 5€/mois) 👑",
+  planName: string = "Pass Alphabette",
   durationMonths: number = 3
 ): Promise<SubscriptionStatus> {
   const expires = new Date();
