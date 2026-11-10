@@ -387,7 +387,7 @@ export default function ApiKeyQuickModal({
         >
           <div className="flex items-center gap-1.5">
             <Server className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px]">Hébergement souverain OVH France • ALPHABETTE SASU</span>
+            <span className="text-[11px]">Hébergement souverain OVH France • ALPHABETTE</span>
           </div>
           <button
             onClick={onClose}

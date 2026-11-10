@@ -1,5 +1,5 @@
 /**
- * Normaliseur phonétique et prosodique souverain pour InfoPerso / ALPHABETTE SASU
+ * Normaliseur phonétique et prosodique souverain pour InfoPerso / ALPHABETTE
  * Proposition 3 : Élimination des prononciations robotiques, balisage prosodique
  * et dépliage phonétique des nombres, devises, unités, dates et acronymes français.
  */

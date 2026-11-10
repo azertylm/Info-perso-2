@@ -5586,7 +5586,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
     ` : ''}
     
     <div class="footer">
-      Document généré par <strong>InfoPerso</strong> le ${new Date().toLocaleDateString("fr-FR")} • ALPHABETTE SASU
+      Document généré par <strong>InfoPerso</strong> le ${new Date().toLocaleDateString("fr-FR")} • ALPHABETTE
     </div>
   </div>
   
@@ -5656,7 +5656,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
             : "📥 Fichier HTML (Fond Clair & Grandes Lettres) téléchargé !"
         );
       } else {
-        const fileContent = `# ${article.title}\nSource: ${article.source} | Catégorie: ${article.category}\nDate: ${formatArticleDateTime(article)}\n\n## Chapeau éditorial\n${summaryText}\n\n## Développement & Analyse de fond\n${contentText}\n\n---\nDocument édité par InfoPerso (ALPHABETTE SASU) le ${new Date().toLocaleDateString("fr-FR")}`;
+        const fileContent = `# ${article.title}\nSource: ${article.source} | Catégorie: ${article.category}\nDate: ${formatArticleDateTime(article)}\n\n## Chapeau éditorial\n${summaryText}\n\n## Développement & Analyse de fond\n${contentText}\n\n---\nDocument édité par InfoPerso (ALPHABETTE) le ${new Date().toLocaleDateString("fr-FR")}`;
         const normalizedContent = fileContent.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n");
 
         const element = document.createElement("a");

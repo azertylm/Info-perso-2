@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * ALPHABETTE - Architecture IA 100% Souveraine & Exclusivité Mistral AI
- * Éditeur : ALPHABETTE SASU (fondé par Valentin RICHAUD à La Grande-Motte)
+ * Éditeur : ALPHABETTE (fondé par Valentin RICHAUD à La Grande-Motte)
  * Hébergement : OVH Cloud (France / Europe - alphabette.fr / alphabette.eu)
  *
  * EXCLUSIVITÉ TECHNOLOGIQUE & CONFORMITÉ RGPD :
@@ -915,7 +915,7 @@ export class AiServiceRouter {
 
     return {
       ecosystem: {
-        publisher: "ALPHABETTE SASU",
+        publisher: "ALPHABETTE",
         founder: "Valentin RICHAUD",
         domains: ["alphabette.fr", "alphabette.eu"],
         hosting: "OVH Cloud (France / Europe - Infrastructure Souveraine)",

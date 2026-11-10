@@ -110,7 +110,7 @@ export default function GuidedTourModal({
       icon: CreditCard,
       badge: "Étape 3 sur 3 • Tarifs Clairs",
       title: "Tarification Simple : 15 € ou Pass 40 € / an",
-      subtitle: "Un modèle économique sain et transparent édité par ALPHABETTE SASU (La Grande-Motte).",
+      subtitle: "Un modèle économique sain et transparent édité par ALPHABETTE (La Grande-Motte).",
       points: [
         {
           icon: Check,

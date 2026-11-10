@@ -93,15 +93,15 @@ export default function AlphabettePricingModal({
 
   if (!isOpen) return null;
 
-  // Tarifs stricts et officiels ALPHABETTE SASU (Valentin RICHAUD)
+  // Tarifs stricts et officiels ALPHABETTE (Valentin RICHAUD)
   const soloPrice = 15; // 15 € TTC / an
   const passPrice = 40; // 40 € TTC / an
   const hubUrl = config?.hubUrl || "http://alphabette.fr";
 
   // Copie 1-clic de la grille tarifaire officielle
   const handleCopyTarifs = () => {
-    const textToCopy = `# GRILLE TARIFAIRE OFFICIELLE — ALPHABETTE SASU
-Éditeur : ALPHABETTE SASU • Valentin RICHAUD • La Grande-Motte
+    const textToCopy = `# GRILLE TARIFAIRE OFFICIELLE — ALPHABETTE
+Éditeur : ALPHABETTE • Valentin RICHAUD • La Grande-Motte
 Hébergement souverain : VPS OVH (France) • Zéro revente de données • Aucune publicité
 
 1. OFFRE SOLO — INFO PERSO : 15 € TTC / an
@@ -229,7 +229,7 @@ Site officiel : http://alphabette.fr`;
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                ALPHABETTE SASU
+                ALPHABETTE
               </span>
               <span className="px-3 py-1 rounded-md text-xs font-bold bg-indigo-600 text-white flex items-center gap-1.5 shadow-xs">
                 <Shield className="w-3.5 h-3.5" />

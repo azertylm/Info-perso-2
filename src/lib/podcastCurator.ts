@@ -61,7 +61,7 @@ export function clearListenedArticleIds(): void {
 }
 
 /**
- * Algorithme de scoring d'affinité utilisateur pour InfoPerso / ALPHABETTE SASU :
+ * Algorithme de scoring d'affinité utilisateur pour InfoPerso / ALPHABETTE :
  * Classe tous les articles en fonction des signaux explicites et implicites de l'auditeur :
  * 1. Articles sauvegardés/favoris (affinité maximale)
  * 2. Pondérations de catégories (cat_weights)

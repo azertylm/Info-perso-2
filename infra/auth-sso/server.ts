@@ -10,7 +10,7 @@ import crypto from "crypto";
 import { z } from "zod";
 
 // ============================================================================
-// ALPHABETTE SASU — SSO & AUTHENTIFICATION CENTRALISÉE (Fastify / TypeScript)
+// ALPHABETTE — SSO & AUTHENTIFICATION CENTRALISÉE (Fastify / TypeScript)
 // Architecture Souveraine & Sécurisée pour VPS OVH Ubuntu 24.04 LTS
 // Tarification : 15 €/an (app unitaire) ou 40 €/an (Pass ALPHABETTE intégral)
 // ============================================================================

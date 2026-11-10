@@ -1,6 +1,6 @@
 /**
  * Analyseur Acoustique Vocal & Calibrage d'Empreinte Vocale (15-30s)
- * ALPHABETTE SASU - InfoPerso
+ * ALPHABETTE - InfoPerso
  * 
  * Analyse en direct via l'API Web Audio :
  * - Fréquence fondamentale F0 (hauteur naturelle de la voix via autocorrélation temporelle)

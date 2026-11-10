@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * ALPHABETTE - Client AI Service Abstraction (Exclusivité Mistral AI)
- * Éditeur : ALPHABETTE SASU (fondé par Valentin RICHAUD)
+ * Éditeur : ALPHABETTE (fondé par Valentin RICHAUD)
  * Rôle : Couche d'abstraction unifiée pour les composants de l'application
  * Conformité : Hébergement France / Europe, RGPD strict, zéro revente de données.
  * ============================================================================

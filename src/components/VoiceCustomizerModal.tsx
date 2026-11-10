@@ -1093,11 +1093,11 @@ export const VoiceCustomizerModal: React.FC<VoiceCustomizerModalProps> = ({
           )}
         </div>
 
-        {/* Pied de page informatif ALPHABETTE SASU */}
+        {/* Pied de page informatif ALPHABETTE */}
         <div className={`p-3 sm:px-5 border-t text-[11px] flex items-center justify-between ${isDark ? "border-zinc-800 bg-zinc-900/60 text-zinc-400" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Studio acoustique souverain ALPHABETTE SASU • Traitement vocal local respectant votre vie privée</span>
+            <span>Studio acoustique souverain ALPHABETTE • Traitement vocal local respectant votre vie privée</span>
           </div>
           <button
             onClick={() => {

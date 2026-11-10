@@ -407,7 +407,7 @@ export default function DonationSection({
                     value={tempRib.accountHolder}
                     onChange={(e) => setTempRib({ ...tempRib, accountHolder: e.target.value })}
                     className={getInputClass()}
-                    placeholder="M. Jean DUPONT ou ALPHABETTE SASU"
+                    placeholder="M. Jean DUPONT ou ALPHABETTE"
                   />
                 </div>
               </div>

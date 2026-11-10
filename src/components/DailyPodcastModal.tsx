@@ -1069,7 +1069,7 @@ Format JSON requis :
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: `${currentChapterIndex + 1}. ${currentChapter.title.replace(/^\d+\.\s*/, "")}`,
-        artist: "InfoPerso — ALPHABETTE SASU",
+        artist: "InfoPerso — ALPHABETTE",
         album: "Chronique Vocale InfoPerso",
         artwork: [
           { src: "/favicon.ico", sizes: "96x96", type: "image/x-icon" },

@@ -250,7 +250,7 @@ export default function ApiKeyTrousseauModal({
             <div className="space-y-0.5 leading-relaxed">
               <span className="font-bold block">Principe Éthique : Facturation au prix coûtant direct</span>
               <span>
-                Alphabette SASU ne prélève <strong>aucune marge ni commission intermédiaire</strong> sur vos tokens.
+                Alphabette ne prélève <strong>aucune marge ni commission intermédiaire</strong> sur vos tokens.
                 Chaque requête est exécutée directement avec votre clé API personnelle et facturée au prix coûtant
                 strict par le fournisseur d'IA de votre choix.
               </span>

@@ -126,7 +126,7 @@ app.get("/api/alphabette/config", async (_req, res) => {
           currency: "EUR",
           period: "an",
           mistralManaged: false,
-          description: "Abonnement annuel officiel ALPHABETTE SASU — 15 € TTC / an"
+          description: "Abonnement annuel officiel ALPHABETTE — 15 € TTC / an"
         },
         comfortManaged: {
           id: "solo_managed",
@@ -135,7 +135,7 @@ app.get("/api/alphabette/config", async (_req, res) => {
           currency: "EUR",
           period: "an",
           mistralManaged: true,
-          description: "Abonnement annuel officiel ALPHABETTE SASU — 15 € TTC / an"
+          description: "Abonnement annuel officiel ALPHABETTE — 15 € TTC / an"
         }
       },
       bundle: {
@@ -1584,7 +1584,7 @@ Cette synthèse rassemble et structure les informations issues des articles de v
 - **Synthèse des faits** : Les résumés de nos experts et de l'IA souveraine Mistral permettent de dresser un état des lieux solide et de guider votre réflexion.
 
 ## Conclusion
-Veille souveraine garantie par ALPHABETTE SASU, respectueuse de vos données et hébergée en Europe.`;
+Veille souveraine garantie par ALPHABETTE, respectueuse de vos données et hébergée en Europe.`;
     res.json({ synthesis: fallbackSynthesis, isFallback: true });
   }
 });

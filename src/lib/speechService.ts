@@ -1,5 +1,5 @@
 /**
- * Service de Synthèse Vocale Haute Fidélité pour InfoPerso / ALPHABETTE SASU
+ * Service de Synthèse Vocale Haute Fidélité pour InfoPerso / ALPHABETTE
  * - Double moteur : Google Speech / Gemini Neural TTS (Studio HD) + Repli vocal système haute définition
  * - Normalisation phonétique française intégrale (chiffres, devises, pourcentages, dates en toutes lettres)
  * - Gestion granulaire de la vitesse de lecture (0.75x à 2.0x) modifiable en direct

@@ -1,5 +1,5 @@
 /**
- * Cache audio persistant local IndexedDB pour le Flash InfoPerso / ALPHABETTE SASU
+ * Cache audio persistant local IndexedDB pour le Flash InfoPerso / ALPHABETTE
  * Proposition 4 : Pipeline de mise en cache souverain zéro-latence (0 ms) & écoute nomade
  * Empreinte cryptographique SHA-256 par chronique et stockage local (zéro revente de données).
  */

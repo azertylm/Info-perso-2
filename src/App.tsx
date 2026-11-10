@@ -1646,7 +1646,7 @@ export default function App() {
             }`}>
               <div className="text-left space-y-1">
                 <p className="font-semibold text-zinc-200">
-                  © 2026 ALPHABETTE SASU • Fondé par Valentin RICHAUD à La Grande-Motte
+                  © 2026 ALPHABETTE • Fondé par Valentin RICHAUD à La Grande-Motte
                 </p>
                 <p className="text-[11px] text-zinc-500">
                   Solutions logicielles souveraines, sans pistage ni revente de données • Moteur Mistral AI souverain (France/Europe)

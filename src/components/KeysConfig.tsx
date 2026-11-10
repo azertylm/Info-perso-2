@@ -420,7 +420,7 @@ export default function KeysConfig({
         </div>
 
         <p className="text-xs text-zinc-400 leading-relaxed">
-          Si vous possédez un code d'accès offert par Valentin RICHAUD ou un partenaire d'ALPHABETTE SASU, entrez-le
+          Si vous possédez un code d'accès offert par Valentin RICHAUD ou un partenaire d'ALPHABETTE, entrez-le
           ci-dessous pour activer 1 an d'accès complet. Le code est à usage unique et sera désactivé sur le hub dès sa
           validation.
         </p>
