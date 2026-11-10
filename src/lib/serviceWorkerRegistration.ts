@@ -44,6 +44,13 @@ export function registerServiceWorker(): Workbox | null {
     return wbInstance;
   }
 
+  // Le service worker suppose que l'application est servie à la racine du
+  // domaine. Publiée dans un sous-dossier (alphabette.fr/apps/infosperso/),
+  // on s'en passe plutôt que de mettre en cache de mauvaises adresses.
+  if (new URL('.', document.baseURI).pathname !== '/') {
+    return null;
+  }
+
   try {
     wbInstance = new Workbox('/sw.js');
 
