@@ -1,3 +1,4 @@
+import { lireMembre } from "./membreAlphabette";
 /**
  * Quota & Anti-Abuse Manager for ALPHABETTE Suite
  * 
@@ -68,6 +69,7 @@ export function isUserSubscribed(): boolean {
   const code = localStorage.getItem("alphabette_access_code");
   const isFounder = localStorage.getItem("infoperso_is_founder") === "true" || plan === "founder" || plan === "FONDATEUR";
   return Boolean(
+    lireMembre() || // inscrit avec un code d'invitation alphabette : accès offert
     isFounder ||
     (plan && plan !== "free" && plan !== "trial") ||
     (code && code.trim().length > 0)

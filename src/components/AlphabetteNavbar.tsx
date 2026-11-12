@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { lireMembre } from "../lib/membreAlphabette";
 import {
   Sparkles,
   Key,
@@ -64,11 +65,13 @@ export default function AlphabetteNavbar({
             <span
               onClick={onOpenKeyring}
               className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold cursor-pointer hover:bg-emerald-500/20"
-              title="Accès Actif : Requêtes illimitées"
+              title={lireMembre() ? "Inscrit(e) avec un code d'invitation : requêtes illimitées" : "Accès Actif : Requêtes illimitées"}
             >
               <ShieldCheck className="w-3 h-3 text-emerald-400" />
               <span>
-                {localStorage.getItem("alphabette_user_plan") === "lifetime_pioneer" ||
+                {lireMembre()
+                  ? `${lireMembre()!.prenom} · accès offert`
+                  : localStorage.getItem("alphabette_user_plan") === "lifetime_pioneer" ||
                 localStorage.getItem("alphabette_lifetime_pioneer") === "true"
                   ? "Pionnier Gratuit à Vie"
                   : "Abonné (Illimité BYOK)"}
