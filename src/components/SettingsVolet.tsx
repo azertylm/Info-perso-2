@@ -1717,7 +1717,7 @@ export const SettingsVolet: React.FC<SettingsVoletProps> = ({
                       Génération d'actualité en direct (IA)
                     </h4>
                     <p className="text-xs opacity-75 mt-0.5">
-                      Générez 20 nouveaux articles d'actualité vérifiés (&lt; 30 jours) avec croisement de sources fiables.
+                      Générez 20 résumés d'actualité par IA (moins de 30 jours). L'IA peut se tromper : vérifiez auprès des sources citées.
                     </p>
                   </div>
                   <button

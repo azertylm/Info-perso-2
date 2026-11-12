@@ -237,7 +237,7 @@ Réponds UNIQUEMENT au format JSON strict avec la structure suivante :
           }`}>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-400 mb-2">
               <CheckCircle2 className="w-4 h-4" />
-              <span>1. Consensus Factuel Indiscutable</span>
+              <span>1. Points clés de l'article (à recouper avec la source)</span>
             </div>
             <ul className="space-y-1.5 text-xs sm:text-sm leading-relaxed">
               {analysis.factualConsensus.map((fact, idx) => (
