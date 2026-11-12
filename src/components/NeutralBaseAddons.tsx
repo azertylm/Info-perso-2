@@ -507,30 +507,8 @@ export function RealTimeTranslator({
     try {
       const apiKey = apiKeys.gemini;
       if (!apiKey) {
-        // Fallback translation simulator if API key is not yet set up
-        setTimeout(() => {
-          let tTitle = article.title;
-          let tSummary = article.summary;
-          let tContent = article.content;
-
-          if (language === "en") {
-            tTitle = `[Translated] ${article.title}`;
-            tSummary = `This is a translated summary of: ${article.summary}`;
-            tContent = `Translated Content:\n\n${article.content}`;
-          } else if (language === "zh") {
-            tTitle = `[翻译] ${article.title}`;
-            tSummary = `文章摘要：${article.summary}`;
-            tContent = `译文内容：\n\n${article.content}`;
-          } else if (language === "es") {
-            tTitle = `[Traducido] ${article.title}`;
-            tSummary = `Resumen: ${article.summary}`;
-            tContent = `Contenido traducido:\n\n${article.content}`;
-          }
-
-          onTranslated(tTitle, tSummary, tContent);
-          setIsTranslating(false);
-          onNotify("✅ Traduction simulée complétée ! Configurez votre clé Gemini pour de vraies traductions.");
-        }, 1200);
+        setIsTranslating(false);
+        onNotify("Pour traduire un article, ajoutez votre clé Gemini dans le Trousseau de clés API.");
         return;
       }
 
@@ -582,27 +560,7 @@ export function RealTimeTranslator({
         onTranslated(translatedData.title, translatedData.summary, translatedData.content);
         onNotify(`🎉 Article traduit en ${language.toUpperCase()} avec succès !`);
       } else {
-        // Fallback simulation
-        let tTitle = article.title;
-        let tSummary = article.summary;
-        let tContent = article.content;
-
-        if (language === "en") {
-          tTitle = `[Translated] ${article.title}`;
-          tSummary = `This is a translated summary of: ${article.summary}`;
-          tContent = `Translated Content:\n\n${article.content}`;
-        } else if (language === "zh") {
-          tTitle = `[翻译] ${article.title}`;
-          tSummary = `文章摘要：${article.summary}`;
-          tContent = `译文内容：\n\n${article.content}`;
-        } else if (language === "es") {
-          tTitle = `[Traducido] ${article.title}`;
-          tSummary = `Resumen: ${article.summary}`;
-          tContent = `Contenido traducido:\n\n${article.content}`;
-        }
-
-        onTranslated(tTitle, tSummary, tContent);
-        onNotify(`🎉 Article traduit en ${language.toUpperCase()} (version de secours).`);
+        onNotify("La traduction a échoué : vérifiez votre clé Gemini puis réessayez.");
       }
     } catch (e) {
       onNotify("⚠️ Erreur lors de la traduction : " + String(e));

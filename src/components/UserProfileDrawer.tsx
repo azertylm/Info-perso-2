@@ -10,8 +10,6 @@ import {
   SubscriptionStatus, 
   CONNECTED_APPS, 
   subscribeUser, 
-  simulateExpiry, 
-  resetToFree 
 } from "../lib/subscriptionService";
 
 interface Badge {
@@ -448,49 +446,6 @@ export default function UserProfileDrawer({
                         </span>
                       </div>
 
-                      {/* Developer Sandbox Testing Controls */}
-                      <div className="pt-2 border-t border-zinc-800/20 space-y-2">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-amber-600 flex items-center gap-1">
-                          <Terminal className="w-3.5 h-3.5" />
-                          Simulateur Multi-App (Test Sandbox) :
-                        </p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={async () => {
-                              try {
-                                setSimLoading(true);
-                                await simulateExpiry(currentUser.uid, currentUser.email || "");
-                                onNotify("⚠️ Simulation : Abonnement expiré sur toutes les instances !");
-                              } catch (err: any) {
-                                onNotify("Erreur de simulation : " + err.message);
-                              } finally {
-                                setSimLoading(false);
-                              }
-                            }}
-                            disabled={simLoading}
-                            className="py-1 px-2 bg-red-950/40 hover:bg-red-950/60 text-red-400 rounded text-[9px] border border-red-500/20 font-bold cursor-pointer transition-colors"
-                          >
-                            Simuler Expiration
-                          </button>
-                          <button
-                            onClick={async () => {
-                              try {
-                                setSimLoading(true);
-                                await resetToFree(currentUser.uid, currentUser.email || "");
-                                onNotify("♻️ Simulation : Retour au forfait gratuit (résilié) !");
-                              } catch (err: any) {
-                                onNotify("Erreur de simulation : " + err.message);
-                              } finally {
-                                setSimLoading(false);
-                              }
-                            }}
-                            disabled={simLoading}
-                            className="py-1 px-2 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 rounded text-[9px] border border-zinc-700 font-bold cursor-pointer transition-colors"
-                          >
-                            Réinitialiser à Gratuit
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">

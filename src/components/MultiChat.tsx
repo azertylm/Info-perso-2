@@ -731,7 +731,7 @@ export default function MultiChat({
                   <span>Clé API Mistral</span>
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-indigo-500/20 text-indigo-300">
-                  {apiKeys.mistral ? "BYOK Actif" : "Secours Inclus"}
+                  {apiKeys.mistral ? "Clé active" : "Clé à ajouter"}
                 </span>
               </button>
             )}

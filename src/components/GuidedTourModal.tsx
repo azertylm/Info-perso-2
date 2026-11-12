@@ -79,19 +79,19 @@ export default function GuidedTourModal({
           text: "Esprit critique & Pourquoi : posez des questions à l'IA pour situer l'événement dans le temps long et mesurer les impacts réels."
         }
       ],
-      actionLabel: "Suivant : L'Essai Gratuit",
+      actionLabel: "Suivant : L'IA avec votre clé",
       highlightColor: "indigo"
     },
     {
       id: "trial-managed",
       icon: Gift,
       badge: "Étape 2 sur 3 • Autonomie",
-      title: "Essai Gratuit 7 Jours & Zéro Configuration",
-      subtitle: "Prise en main immédiate pour le particulier : tout fonctionne dès le premier instant sans carte bancaire.",
+      title: "L'IA avec votre propre clé API",
+      subtitle: "Le fil d'actualités marche tout de suite ; les fonctions IA demandent votre clé.",
       points: [
         {
           icon: Sparkles,
-          text: "7 jours offerts sur clé Mistral managée : accédez à toutes les analyses, synthèses et chats IA sans rien paramétrer."
+          text: "Les analyses, synthèses et chats IA utilisent votre propre clé API (Mistral, Gemini, OpenAI, Anthropic, DeepSeek ou Grok). Sans clé, ces fonctions sont indisponibles."
         },
         {
           icon: ShieldCheck,
@@ -99,7 +99,7 @@ export default function GuidedTourModal({
         },
         {
           icon: Key,
-          text: "Liberté totale (BYOK) : pour les utilisateurs avancés, possibilité d'injecter vos propres clés API dans le coffre-fort."
+          text: "Vos clés restent dans votre navigateur : ajoutez-les dans le Trousseau de clés API."
         }
       ],
       actionLabel: "Suivant : Tarifs & Bouquet",
@@ -114,7 +114,7 @@ export default function GuidedTourModal({
       points: [
         {
           icon: Check,
-          text: "15 € TTC / an pour l'outil individuel InfoPerso ou 40 € TTC / an pour le Pass ALPHABETTE (accès complet aux 15 applications du bouquet)."
+          text: "Tarifs prévus : 15 € TTC / an pour Info Perso, 40 € TTC / an pour le Pass ALPHABETTE (toutes les applications). Le paiement en ligne n'est pas encore ouvert."
         },
         {
           icon: ShieldCheck,
@@ -250,7 +250,7 @@ export default function GuidedTourModal({
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3 text-xs">
               <span className="text-emerald-400 font-bold flex items-center gap-1.5">
                 <Check className="w-4 h-4" />
-                Essai 7 jours déjà activé sur votre navigateur
+                Compte gratuit, sans carte bancaire
               </span>
               {onOpenAuth && (
                 <button
@@ -406,11 +406,11 @@ export function FloatingHelpBeacon({
             </div>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span><strong>Essai 7 jours :</strong> actif sans carte bancaire.</span>
+              <span><strong>IA :</strong> avec votre propre clé API.</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span><strong>Formules :</strong> 15 €/an ou Pass complet 40 €/an.</span>
+              <span><strong>Tarifs prévus :</strong> 15 €/an ou Pass 40 €/an.</span>
             </div>
           </div>
 

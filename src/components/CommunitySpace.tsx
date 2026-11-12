@@ -122,205 +122,8 @@ export interface StarAuthor {
   latestTitle?: string;
 }
 
-// Initial fallback community articles with full ratings & AI metrics
-const PRELOADED_COMMUNITY_ARTICLES: CommunityArticle[] = [
-  {
-    id: "demo-1",
-    title: "L'Occitanie devient un hub européen de l'intelligence artificielle et de l'aérospatiale",
-    source: "AFP / Toulouse Tech Journal",
-    newsAngle: "Annonce du plan régional Occitanie IA 2030 et du nouveau centre de recherche ANITI.",
-    category: "IA",
-    tags: ["Occitanie", "Aéronautique", "Europe", "ANITI"],
-    summary: "Analyse des investissements régionaux, de la collaboration entre Airbus et les universités toulousaines pour certifier des IA critiques.",
-    content: "L'Occitanie affirme son leadership européen dans le numérique et l'aérospatiale. Grâce aux centres de recherche comme l'IRIT et l'institut ANITI, Toulouse attire plus de 450 millions d'euros d'investissements publics et privés.\n\nDes startups régionales conçoivent des modèles d'IA explicables pour l'aviation commerciale et l'imagerie satellitaire médicale. Cette synergie public-privé offre un cadre éthique unique en Europe.",
-    emoji: "🚀",
-    score: 94,
-    aiFactCheckScore: 94,
-    aiFactCheckVerdict: "Excellente rigueur factuelle, contextualisation régionale vérifiée et sources concordantes.",
-    aiFactualConsistency: 96,
-    aiJournalisticStyle: 92,
-    aiRelevanceToCurrentEvents: 95,
-    aiCertifiedBadge: "🌟 Article d'Excellence",
-    authorName: "Damien Roussel",
-    authorEmail: "damien.r@infoperso.fr",
-    authorUid: "author-damien",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 24,
-    time: "il y a 2h",
-    ratingsCount: 8,
-    averageRating: 4.9,
-    ratings: [
-      { uid: "u1", userName: "Claire", rating: 5, timestamp: Date.now() - 3600000 },
-      { uid: "u2", userName: "Lucas", rating: 5, timestamp: Date.now() - 7200000 }
-    ]
-  },
-  {
-    id: "demo-2",
-    title: "Pourquoi l'art du prompt remplace la syntaxe dans le développement logiciel moderne",
-    source: "Le Monde Informatique / Tribune Débat",
-    newsAngle: "Sortie des nouveaux benchmarks des modèles de raisonnement avancés et retours d'équipes d'ingénieurs.",
-    category: "Technologie",
-    tags: ["Prompting", "Ingénierie", "Futur"],
-    summary: "Une réflexion sur l'évolution du métier de développeur face aux agents autonomes capables de générer des architectures complètes.",
-    content: "Avec l'émergence des agents capables de coder des systèmes complexes à partir de spécifications en langage naturel, la compétence clé n'est plus de mémoriser une syntaxe, mais de poser les bonnes contraintes formelles.\n\nLe rôle de l'ingénieur évolue vers celui d'un architecte et auditeur de systèmes. La clarté logique et la décomposition de problèmes deviennent le socle premier de l'ingénierie moderne.",
-    emoji: "🧠",
-    score: 91,
-    aiFactCheckScore: 91,
-    aiFactCheckVerdict: "Analyse prospective solide, argumentation équilibrée sans affirmations hyperboliques.",
-    aiFactualConsistency: 92,
-    aiJournalisticStyle: 90,
-    aiRelevanceToCurrentEvents: 91,
-    aiCertifiedBadge: "🌟 Article d'Excellence",
-    authorName: "Sophie Martin",
-    authorEmail: "sophie.m@infoperso.fr",
-    authorUid: "author-sophie",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 18,
-    time: "il y a 4h",
-    ratingsCount: 6,
-    averageRating: 4.8,
-    ratings: [
-      { uid: "u3", userName: "Damien", rating: 5, timestamp: Date.now() - 5000000 }
-    ]
-  },
-  {
-    id: "demo-3",
-    title: "Transition énergétique : le rôle méconnu des réseaux électriques intelligents en France",
-    source: "RTE & Le Figaro Économie",
-    newsAngle: "Publication du bilan électrique national et déploiement des batteries décentralisées.",
-    category: "Économie",
-    tags: ["Énergie", "RTE", "SmartGrids", "Climat"],
-    summary: "Comment le pilotage algorithmique de la charge permet d'intégrer 40% de solaire et d'éolien sans rupture d'approvisionnement.",
-    content: "L'intégration massive des énergies renouvelables intermittentes impose une refonte totale de l'équilibrage électrique. Grâce aux capteurs IoT et aux prévisions météorologiques calculées par IA, RTE ajuste la production en millisecondes.\n\nLes compteurs communicants et le stockage décentralisé transforment les consommateurs en acteurs actifs du réseau, réduisant les pointes d'émission de carbone.",
-    emoji: "⚡",
-    score: 88,
-    aiFactCheckScore: 88,
-    aiFactCheckVerdict: "Faits conformes aux données officielles de RTE, explications pédagogiques claires.",
-    aiFactualConsistency: 90,
-    aiJournalisticStyle: 87,
-    aiRelevanceToCurrentEvents: 89,
-    aiCertifiedBadge: "✓ Article Vérifié",
-    authorName: "Damien Roussel",
-    authorEmail: "damien.r@infoperso.fr",
-    authorUid: "author-damien",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 15,
-    time: "Hier",
-    ratingsCount: 5,
-    averageRating: 4.7
-  },
-  {
-    id: "demo-4",
-    title: "La révolution de la médecine personnalisée par l'ARN messager et le séquençage haut débit",
-    source: "Nature Medicine / Synthèse CNRS",
-    newsAngle: "Lancement des essais cliniques de phase 3 pour les vaccins thérapeutiques contre le mélanome.",
-    category: "Sciences",
-    tags: ["Santé", "ARN", "Recherche", "Médecine"],
-    summary: "Les premiers traitements oncologiques sur mesure conçus en moins de 6 semaines grâce à la génomique computationnelle.",
-    content: "La biotechnologie franchit une étape décisive : adapter un vaccin thérapeutique à la carte mutationnelle précise de chaque patient. En combinant séquençage ultra-rapide et modélisation moléculaire, les équipes médicales ciblent les néoantigènes spécifiques.\n\nLes premiers résultats cliniques démontrent une réduction spectaculaire des récidives, ouvrant une nouvelle ère pour l'immunothérapie.",
-    emoji: "🧬",
-    score: 93,
-    aiFactCheckScore: 93,
-    aiFactCheckVerdict: "Excellente synthèse scientifique, terminologie exacte et rigueur méthodologique démontrée.",
-    aiFactualConsistency: 95,
-    aiJournalisticStyle: 92,
-    aiRelevanceToCurrentEvents: 93,
-    aiCertifiedBadge: "🌟 Article d'Excellence",
-    authorName: "Sophie Martin",
-    authorEmail: "sophie.m@infoperso.fr",
-    authorUid: "author-sophie",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 21,
-    time: "Hier",
-    ratingsCount: 7,
-    averageRating: 4.9
-  },
-  {
-    id: "demo-5",
-    title: "L'agriculture régénérative face aux sécheresses méditerranéennes : retours d'expérience",
-    source: "AgriTech Sud / INRAE",
-    newsAngle: "Bilan des expérimentations agroécologiques après trois années de stress hydrique en Occitanie.",
-    category: "Local",
-    tags: ["Occitanie", "Agriculture", "Climat", "INRAE"],
-    summary: "Couverture permanente des sols, agroforesterie et semis direct : les résultats mesurés sur 50 fermes pilotes du Tarn et de l'Aude.",
-    content: "Face aux étés caniculaires, les agriculteurs occitans réinventent leurs pratiques. L'expérimentation menée par l'INRAE sur 50 exploitations démontre qu'un sol couvert en permanence retient 30% d'humidité supplémentaire.\n\nLes rendements se stabilisent tout en diminuant les intrants chimiques, prouvant que la résilience écologique rime avec pérennité économique.",
-    emoji: "🌱",
-    score: 90,
-    aiFactCheckScore: 90,
-    aiFactCheckVerdict: "Données INRAE bien exploitées, témoignages de terrain authentiques et vérifiables.",
-    aiFactualConsistency: 92,
-    aiJournalisticStyle: 89,
-    aiRelevanceToCurrentEvents: 90,
-    aiCertifiedBadge: "🌟 Article d'Excellence",
-    authorName: "Damien Roussel",
-    authorEmail: "damien.r@infoperso.fr",
-    authorUid: "author-damien",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 19,
-    time: "Il y a 2 jours",
-    ratingsCount: 5,
-    averageRating: 4.8
-  },
-  {
-    id: "demo-6",
-    title: "Cybersécurité des hôpitaux : le plan d'urgence face aux ransomwares de nouvelle génération",
-    source: "ANSSI & Journal du Net",
-    newsAngle: "Directives de l'ANSSI pour la résilience numérique des établissements de santé publics.",
-    category: "Technologie",
-    tags: ["Cybersécurité", "Santé", "ANSSI"],
-    summary: "Pourquoi l'isolation des réseaux et l'authentification multi-facteurs stricte deviennent impératives dans les CHU.",
-    content: "Les attaques informatiques ciblant les infrastructures de santé nécessitent une riposte globale. L'ANSSI déploie des équipes de réponse rapide et impose des audits de sécurité renforcés.\n\nLa sensibilisation des équipes soignantes et la segmentation des équipements biomédicaux sont les piliers de cette nouvelle doctrine de défense.",
-    emoji: "🛡️",
-    score: 87,
-    aiFactCheckScore: 87,
-    aiFactCheckVerdict: "Recommandations techniques conformes aux référentiels ANSSI.",
-    aiFactualConsistency: 89,
-    aiJournalisticStyle: 86,
-    aiRelevanceToCurrentEvents: 88,
-    aiCertifiedBadge: "✓ Article Vérifié",
-    authorName: "Damien Roussel",
-    authorEmail: "damien.r@infoperso.fr",
-    authorUid: "author-damien",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 14,
-    time: "Il y a 3 jours",
-    ratingsCount: 4,
-    averageRating: 4.6
-  },
-  {
-    id: "demo-7",
-    title: "Neurosciences et apprentissage : comment le cerveau mémorise à l'ère des notifications",
-    source: "Cerveau & Psycho / Collège de France",
-    newsAngle: "Publication des travaux de recherche sur l'attention partagée et la consolidation mnésique.",
-    category: "Sciences",
-    tags: ["Cerveau", "Mémoire", "Éducation"],
-    summary: "Pourquoi le sommeil paradoxal et les pauses sans écran sont indispensables pour ancrer les connaissances à long terme.",
-    content: "Le flux continu d'informations sollicite excessivement la mémoire de travail au détriment de la mémoire à long terme. Les neurosciences révèlent que la consolidation synaptique s'opère principalement lors des temps calmes et du sommeil.\n\nAdopter des sessions de travail focalisées sans interruption est le secret pour apprendre durablement.",
-    emoji: "💡",
-    score: 92,
-    aiFactCheckScore: 92,
-    aiFactCheckVerdict: "Explication rigoureuse des mécanismes de neuroplasticité.",
-    aiFactualConsistency: 94,
-    aiJournalisticStyle: 91,
-    aiRelevanceToCurrentEvents: 91,
-    aiCertifiedBadge: "🌟 Article d'Excellence",
-    authorName: "Damien Roussel",
-    authorEmail: "damien.r@infoperso.fr",
-    authorUid: "author-damien",
-    authorVerified: true,
-    authorCertified: true,
-    likes: 27,
-    time: "Il y a 4 jours",
-    ratingsCount: 9,
-    averageRating: 4.9
-  }
-];
+// Aucun article d'exemple : seuls les vrais articles publiés par des membres sont affichés.
+const PRELOADED_COMMUNITY_ARTICLES: CommunityArticle[] = [];
 
 const CATEGORIES = ["IA", "Technologie", "Sciences", "Économie", "Local", "Société", "Climat", "Autre"];
 const EMOJIS = ["🤖", "🚀", "⚡", "🧬", "🌱", "🛡️", "💡", "🧠", "⚛️", "🌊", "🎨", "📊", "🏛️", "📢", "📝"];
@@ -943,17 +746,7 @@ export default function CommunitySpace({
             if (stored) {
               setComments(JSON.parse(stored));
             } else {
-              setComments([
-                {
-                  id: "c-demo-1",
-                  articleId: selectedArticle.id,
-                  authorName: "Marc Tech",
-                  authorEmail: "marc@infoperso.fr",
-                  content: "Excellente analyse, très bien sourcée ! L'éclairage sur les retombées concrètes est particulièrement instructif.",
-                  createdAt: { seconds: Date.now() / 1000 - 3600 },
-                  likes: 5
-                }
-              ]);
+              setComments([]);
             }
           } catch {
             setComments([]);
@@ -961,17 +754,7 @@ export default function CommunitySpace({
         }
       } catch (err) {
         console.warn("Notice retrieving comments locally:", err);
-        setComments([
-          {
-            id: "c-demo-1",
-            articleId: selectedArticle.id,
-            authorName: "Marc Tech",
-            authorEmail: "marc@infoperso.fr",
-            content: "Excellente analyse, très bien sourcée ! L'éclairage sur les retombées concrètes est particulièrement instructif.",
-            createdAt: { seconds: Date.now() / 1000 - 3600 },
-            likes: 5
-          }
-        ]);
+        setComments([]);
       }
     };
 

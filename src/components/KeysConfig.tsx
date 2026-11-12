@@ -263,14 +263,14 @@ export default function KeysConfig({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
-              1. Essai Gratuit 7j
+              1. Sans clé
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              {trialDaysLeft > 0 ? `${trialDaysLeft}j restants` : "Expiré"}
+              Sans IA
             </span>
           </div>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Tout nouvel inscrit bénéficie de 7 jours d'accès complet offerts sur la clé Mistral managée par Alphabette.
+            Sans clé API, le fil d'actualités fonctionne, mais les fonctions d'intelligence artificielle sont indisponibles.
           </p>
         </div>
 
@@ -295,14 +295,14 @@ export default function KeysConfig({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4" />
-              3. Mode Managé
+              3. Clé fournie (bientôt)
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
               Alphabette
             </span>
           </div>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Consommation Mistral AI administrée et garantie par Alphabette via la Formule Confort ou le Pass Bouquet.
+            Pas encore disponible : aujourd'hui, l'IA utilise uniquement votre propre clé.
           </p>
         </div>
       </div>
@@ -336,7 +336,7 @@ export default function KeysConfig({
             type={showKey ? "text" : "password"}
             value={mistralKey}
             onChange={(e) => handleKeyChange(e.target.value)}
-            placeholder="Collez votre clé API Mistral (ex: mk-...). Laisser vide pour utiliser le mode managé / essai..."
+            placeholder="Collez votre clé API Mistral"
             className="w-full bg-zinc-950 border border-zinc-750 focus:border-amber-500 rounded-xl px-4 py-2.5 pr-20 text-xs sm:text-sm text-white font-mono placeholder:text-zinc-500 outline-none transition-colors"
           />
 

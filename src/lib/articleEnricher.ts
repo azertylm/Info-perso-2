@@ -4,7 +4,7 @@ import { fixTemporalConsistency } from "./temporalConsistency";
 /**
  * Curated deep data dictionary for baseline articles to ensure exemplary density
  */
-const KNOWN_ARTICLES_DEEP_DATA: Record<number, {
+const _ANCIEN_DICTIONNAIRE_NON_UTILISE: Record<number, {
   keyFigures: ArticleKeyFigure[];
   keyTakeaways: string[];
   strategicAnalysis: ArticleStrategicAnalysis;
@@ -704,6 +704,9 @@ const KNOWN_ARTICLES_DEEP_DATA: Record<number, {
   }
 };
 
+// Aucune donnée « maison » : chiffres et analyses ne viennent que du texte réel de l'article.
+const KNOWN_ARTICLES_DEEP_DATA: Record<number, any> = {};
+
 function autoStructureContentWithHeadings(content: string, title: string, category: string): string {
   const paragraphs = content.split("\n\n").map(p => p.trim()).filter(Boolean);
   if (paragraphs.length <= 1) return content;
@@ -836,14 +839,9 @@ function extractOrSynthesizeKeyFigures(article: NewsArticle): ArticleKeyFigure[]
     ]
   };
 
-  const defaultList = fallbacks[cat] || fallbacks["technologie"];
-  const combined = [...extracted];
-  for (const item of defaultList) {
-    if (combined.length >= 4) break;
-    combined.push(item);
-  }
-
-  return combined.slice(0, 4);
+  // Aucun chiffre de remplissage : on ne montre que les chiffres réellement présents dans l'article.
+  void fallbacks;
+  return extracted.slice(0, 4);
 }
 
 /**
@@ -1044,14 +1042,9 @@ function extractOrSynthesizeKeyTakeaways(article: NewsArticle): string[] {
   const sourcePart = article.source || "Presse de référence";
   const catPart = article.category || "Actualités";
 
-  return [
-    `${titlePart} : informations recoupées et confirmées par ${sourcePart}.`,
-    summaryPart && summaryPart.length > 25
-      ? summaryPart
-      : `Mobilisation des acteurs de terrain et effets directs observés dans le secteur ${catPart}.`,
-    `Évolution des pratiques et arbitrages concrets engagés au sein de la filière ${catPart}.`,
-    `Suivi des prochaines étapes annoncées par les parties prenantes.`
-  ];
+  void sourcePart; void catPart;
+  // Pas de phrases inventées : le titre et le résumé réels de l'article, rien d'autre.
+  return [titlePart, summaryPart].filter((t) => t && t.length > 0);
 }
 
 /**
@@ -1062,12 +1055,12 @@ function extractOrSynthesizeStrategicAnalysis(article: NewsArticle): ArticleStra
     return KNOWN_ARTICLES_DEEP_DATA[article.id].strategicAnalysis;
   }
 
-  const src = article.source || "Presse Officielle";
+  // Pas d'analyse inventée : champs vides tant qu'une vraie analyse (IA, clé de l'utilisateur) n'est pas générée.
   return {
-    actorsInvolved: [src, `${article.category || "Secteur"} — Acteurs de terrain`, "Observateurs indépendants"],
-    marketImpact: `Transformation concrète des équilibres et adaptation des acteurs dans le domaine ${article.category || "concerné"}.`,
-    privacyCompliance: "Traitement conforme aux normes de souveraineté numérique et respect strict des protocoles de protection des données (RGPD).",
-    nextMilestone: "Prochaines décisions opérationnelles et retours d'expérience attendus à court terme."
+    actorsInvolved: article.source ? [article.source] : [],
+    marketImpact: "",
+    privacyCompliance: "",
+    nextMilestone: ""
   };
 }
 
@@ -1142,15 +1135,15 @@ export function cleanArticleContent(
         lowerCombined.includes("wall street")
       ))
     ) {
-      return TRUMP_TMTG_FULL_CONTENT;
+      /* texte pré-écrit retiré */
     }
 
     if (lowerCombined.includes("enfants rouges") || lowerCombined.includes("enfants-rouges")) {
-      return ENFANTS_ROUGES_FIRE_FULL_CONTENT;
+      /* texte pré-écrit retiré */
     }
 
     if (lowerCombined.includes("mondial de l’auto") || lowerCombined.includes("mondial de l'auto")) {
-      return MONDIAL_AUTO_2026_FULL_CONTENT;
+      /* texte pré-écrit retiré */
     }
 
     // 1. Try parsing JSON if valid
@@ -1649,20 +1642,15 @@ export function ensureArticleDeepData(article: NewsArticle): NewsArticle {
   }
 
   const fullText = (article.title + " " + article.summary + " " + (article.content || "")).toLowerCase();
-  const isTrumpTmtg = fullText.includes("tmtg") || (fullText.includes("trump") && (fullText.includes("bours") || fullText.includes("truth social") || fullText.includes("dwac") || fullText.includes("action") || fullText.includes("wall street")));
+  const isTrumpTmtg = false; // textes pré-écrits désactivés : jamais de contenu inventé à la place de l'article
 
   let keyFigures = article.keyFigures;
   let keyTakeaways = article.keyTakeaways;
   let strategicAnalysis = article.strategicAnalysis;
   let content = stripCannedBoilerplate(article.content || "");
 
-  const isMondialAuto = 
-    article.id === 654495961000 ||
-    fullText.includes("mondial de l’auto 2026") ||
-    fullText.includes("mondial de l'auto 2026") ||
-    (fullText.includes("60 constructeurs") && fullText.includes("offensive chinoise"));
-
-  const isEnfantsRouges = article.id === 1791807600000;
+  const isMondialAuto = false;
+  const isEnfantsRouges = false;
 
   if (isTrumpTmtg) {
     keyFigures = [
@@ -1731,7 +1719,7 @@ export function ensureArticleDeepData(article: NewsArticle): NewsArticle {
   }
 
   // Pipeline éditorial Info-Perso (« Trier l'information avant de la subir »)
-  const source_mention = article.source_mention || `${article.source || "Presse indépendante"} (Attribution légale d'origine vérifiée)`;
+  const source_mention = article.source_mention || `${article.source || "Source non indiquée"}`;
   const score_bruit = typeof article.score_bruit === "number"
     ? article.score_bruit
     : Math.max(1, Math.min(5, Math.round(5 - ((article.score || 85) / 28))));

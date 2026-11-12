@@ -106,7 +106,9 @@ export function getQuotaStatus(): QuotaStatus {
   }
 
   const remaining = subscribed ? Infinity : Math.max(0, dailyLimit - state.count);
-  const isQuotaExceeded = !subscribed && state.count >= dailyLimit;
+  // Aucune clé IA n'est fournie par Alphabette : l'IA passe par la clé du visiteur,
+  // donc aucun quota « offert » n'est appliqué (il ne protégeait rien et bloquait à tort).
+  const isQuotaExceeded = false;
   const msUntilReset = getMsUntilMidnight();
 
   return {

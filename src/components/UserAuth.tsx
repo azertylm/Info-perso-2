@@ -32,6 +32,29 @@ import {
 } from "lucide-react";
 import { detectDeviceType, DeviceInfo } from "../lib/userSyncService";
 
+/** Message clair en français pour une erreur Firebase Auth (jamais de texte technique brut). */
+function messageErreurAuth(err: any): string {
+  switch (err?.code) {
+    case "auth/email-already-in-use": return "Cette adresse e-mail est déjà utilisée par un autre compte.";
+    case "auth/invalid-email": return "L'adresse e-mail n'est pas valide.";
+    case "auth/weak-password": return "Le mot de passe doit contenir au moins 6 caractères.";
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+    case "auth/invalid-credential": return "Identifiants incorrects. Veuillez réessayer.";
+    case "auth/popup-blocked": return "Votre navigateur a bloqué la fenêtre de connexion Google. Autorisez les fenêtres pop-up pour ce site puis réessayez, ou utilisez la connexion par e-mail.";
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request": return "Connexion annulée : la fenêtre Google a été fermée.";
+    case "auth/unauthorized-domain": return "Connexion impossible depuis cette adresse : ce site n'est pas encore autorisé pour la connexion. Le problème vient de la configuration du service, pas de votre compte.";
+    case "auth/operation-not-allowed": return "Ce mode de connexion n'est pas activé pour le moment. Essayez un autre moyen de connexion.";
+    case "auth/network-request-failed": return "Pas de connexion au service d'identification. Vérifiez votre connexion internet puis réessayez.";
+    case "auth/too-many-requests": return "Trop de tentatives. Patientez quelques minutes puis réessayez.";
+    case "auth/invalid-api-key":
+    case "auth/api-key-not-valid.-please-pass-a-valid-api-key.": return "La connexion est mal configurée (clé du service invalide). Le problème vient du site, pas de vous.";
+    case "auth/web-storage-unsupported": return "Votre navigateur bloque le stockage local nécessaire à la connexion (navigation privée ou cookies bloqués).";
+    default: return "La connexion a échoué. Réessayez dans un instant ou utilisez un autre moyen de connexion.";
+  }
+}
+
 interface UserAuthProps {
   onNotify: (msg: string) => void;
   onClose?: () => void;
@@ -87,22 +110,15 @@ export default function UserAuth({
     setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-      // Initialize 7-day free trial on managed Mistral AI key if not already set
-      if (!localStorage.getItem("alphabette_trial_started_at")) {
-        const now = String(Date.now());
-        localStorage.setItem("alphabette_user_registered_at", now);
-        localStorage.setItem("alphabette_trial_started_at", now);
-        localStorage.setItem("alphabette_user_plan", "trial");
-        window.dispatchEvent(new CustomEvent("alphabette_plan_updated"));
-        window.dispatchEvent(new CustomEvent("alphabette_quota_updated"));
-      }
-
-      onNotify("Connexion Google réussie ! Essai 7 jours activé 🚀");
+      onNotify("Connexion Google réussie.");
       if (onClose) onClose();
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Erreur lors de la connexion Google");
-      onNotify("Échec de la connexion Google.");
+      const msg = messageErreurAuth(err);
+      setError(msg);
+      if (err?.code !== "auth/popup-closed-by-user" && err?.code !== "auth/cancelled-popup-request") {
+        onNotify("Échec de la connexion Google.");
+      }
     } finally {
       setLoading(false);
     }
@@ -128,18 +144,10 @@ export default function UserAuth({
           await updateProfile(signedUpUser, { displayName });
         }
 
-        // Initialize 7-day free trial on managed Mistral AI key
-        const now = String(Date.now());
-        localStorage.setItem("alphabette_user_registered_at", now);
-        localStorage.setItem("alphabette_trial_started_at", now);
-        localStorage.setItem("alphabette_user_plan", "trial");
-        window.dispatchEvent(new CustomEvent("alphabette_plan_updated"));
-        window.dispatchEvent(new CustomEvent("alphabette_quota_updated"));
-
         // Send Email Verification
         await sendEmailVerification(signedUpUser);
         setVerificationSent(true);
-        onNotify("Compte créé ! Essai gratuit de 7 jours activé immédiatement 🚀");
+        onNotify("Compte créé. Un e-mail de vérification vous a été envoyé.");
       } else {
         // Sign In
         await signInWithEmailAndPassword(auth, email, password);
@@ -148,17 +156,7 @@ export default function UserAuth({
       }
     } catch (err: any) {
       console.error(err);
-      let frenchError = err.message;
-      if (err.code === "auth/email-already-in-use") {
-        frenchError = "Cette adresse e-mail est déjà utilisée par un autre compte.";
-      } else if (err.code === "auth/invalid-email") {
-        frenchError = "L'adresse e-mail n'est pas valide.";
-      } else if (err.code === "auth/weak-password") {
-        frenchError = "Le mot de passe doit contenir au moins 6 caractères.";
-      } else if (err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
-        frenchError = "Identifiants incorrects. Veuillez réessayer.";
-      }
-      setError(frenchError);
+      setError(messageErreurAuth(err));
     } finally {
       setLoading(false);
     }
@@ -518,10 +516,10 @@ export default function UserAuth({
         }`}>
           <div className="flex items-center gap-2 mb-1.5 font-bold text-xs">
             <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Essai gratuit de 7 jours offert sans carte bancaire</span>
+            <span>Compte gratuit, sans carte bancaire</span>
           </div>
           <p className="text-[11px] opacity-85 leading-relaxed">
-            Dès votre inscription, profitez immédiatement de <strong>20 requêtes IA/jour</strong> sur notre clé managée souveraine Mistral AI. À l’issue des 7 jours, continuez soit à <strong>15 €/an</strong>, soit sans limite avec vos propres clés API (BYOK). Vos données restent strictement confidentielles.
+            Le compte sert à synchroniser vos réglages entre appareils. Les fonctions d’intelligence artificielle utilisent <strong>votre propre clé API</strong> (Trousseau de clés). Tarifs prévus : <strong>15 €/an</strong> par application, <strong>40 €/an</strong> le Pass ; le paiement n’est pas encore ouvert.
           </p>
         </div>
       )}

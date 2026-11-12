@@ -1359,10 +1359,10 @@ export default function App() {
             >
               <span className="flex items-center gap-2">
                 <Heart className="w-5 h-5 text-rose-500 fill-rose-500/30" />
-                Dons &amp; RIB Officiel
+                Tarifs &amp; soutien
               </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                Soutien
+                Bientôt
               </span>
             </button>
 
@@ -1376,10 +1376,10 @@ export default function App() {
             >
               <span className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-indigo-400" />
-                Clé API Mistral & Secours
+                Clé API Mistral
               </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                {apiKeys.mistral ? "BYOK Actif" : "Prêt 100%"}
+                {apiKeys.mistral ? "Clé active" : "Clé à ajouter"}
               </span>
             </button>
           </div>
@@ -1664,7 +1664,7 @@ export default function App() {
                 <span className="opacity-40">•</span>
                 <button onClick={() => setActiveTab("donations")} className="hover:text-rose-400 transition-colors flex items-center gap-1 font-medium cursor-pointer">
                   <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
-                  RIB & Dons
+                  Tarifs
                 </button>
               </div>
             </footer>

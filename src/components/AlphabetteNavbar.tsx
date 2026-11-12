@@ -80,27 +80,15 @@ export default function AlphabetteNavbar({
           ) : (
             <div className="flex items-center gap-1.5">
               <span
-                onClick={onOpenPricing}
+                onClick={onOpenKeyring}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold cursor-pointer transition-all ${
-                  quota.isQuotaExceeded
-                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 animate-pulse"
-                    : isDark
-                      ? "bg-slate-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
-                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                  isDark
+                    ? "bg-slate-900 border-zinc-800 text-zinc-300 hover:border-zinc-700"
+                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
                 }`}
-                title={
-                  quota.isTrial
-                    ? `Essai 7 jours : ${quota.remaining} requêtes offertes restantes aujourd'hui`
-                    : `Palier offert : ${quota.remaining} requêtes restantes aujourd'hui`
-                }
+                title="IA : ajoutez votre propre clé API"
               >
-                <span className="text-[10px] text-zinc-400 hidden lg:inline">Quota :</span>
-                <span className={quota.isQuotaExceeded ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
-                  {quota.dailyCount}/{quota.dailyLimit}
-                </span>
-                <span className="text-[10px] opacity-75 hidden sm:inline">
-                  ({quota.isTrial ? `${quota.trialDaysLeft}j essai` : "offert"})
-                </span>
+                <span>IA : votre clé API</span>
               </span>
 
               <button
@@ -108,7 +96,7 @@ export default function AlphabetteNavbar({
                 className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/30 font-bold transition-all cursor-pointer"
               >
                 <Sparkles className="w-3 h-3 text-amber-400" />
-                <span className="text-[11px]">Pass 15€/an</span>
+                <span className="text-[11px]">Tarifs</span>
               </button>
             </div>
           )}
