@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Heart,
   Settings,
@@ -142,6 +142,28 @@ export default function App() {
     } else {
       document.documentElement.classList.remove("dark");
       document.documentElement.setAttribute("data-theme", "light");
+    }
+  }, [themeMode]);
+
+  // Pont avec le bouton ☀️/🌙 de la double barre Alphabette : la barre commande le thème de
+  // l'appli ; si l'appli change de thème d'elle-même (réglages, Alt + T), la barre suit.
+  const premierThemeRef = useRef(true);
+  useEffect(() => {
+    // La barre est posée avant l'appli : on reprend son thème dès le départ.
+    const t0 = document.documentElement.dataset.abTheme;
+    if (t0) setThemeMode(t0 === "jour" ? "light" : "dark");
+    const deLaBarre = (ev: Event) => {
+      const t = (ev as CustomEvent).detail === "jour" ? "light" : "dark";
+      setThemeMode(t);
+    };
+    window.addEventListener("alphabette:theme", deLaBarre);
+    return () => window.removeEventListener("alphabette:theme", deLaBarre);
+  }, []);
+  useEffect(() => {
+    if (premierThemeRef.current) { premierThemeRef.current = false; return; }
+    const voulu = themeMode === "dark" ? "nuit" : "jour";
+    if (document.documentElement.dataset.abTheme && document.documentElement.dataset.abTheme !== voulu) {
+      document.getElementById("ab-theme")?.click();
     }
   }, [themeMode]);
 
@@ -495,12 +517,31 @@ export default function App() {
   const [toastTimer, setToastTimer] = useState<any>(null);
 
   // Easy / Big Mode (0 = Standard, 1 = Big +25%, 2 = Big XL / +35% de plus sur la version big)
-  const [easyModeLevel, setEasyModeLevel] = useState<number>(() => {
-    const stored = localStorage.getItem("infoperso_easy_mode");
-    if (stored === "2" || stored === "max" || stored === "super") return 2;
-    if (stored === "true" || stored === "1") return 1;
-    return 0;
+  // La taille d'affichage est réglée par le bouton BIG de la double barre Alphabette
+  // (zoom de la page) : ici on ne fait que suivre son niveau, sans second agrandissement.
+  const NIVEAUX_BIG = ["normal", "large", "xlarge"];
+  const [easyModeLevel, setEasyModeLevelEtat] = useState<number>(() => {
+    const n = NIVEAUX_BIG.indexOf(document.documentElement.dataset.abDensity || "normal");
+    return n < 0 ? 0 : n;
   });
+  const setEasyModeLevel = (cible: number) => {
+    // Commande le bouton BIG de la barre autant de fois que nécessaire.
+    const actuel = NIVEAUX_BIG.indexOf(document.documentElement.dataset.abDensity || "normal");
+    const clics = (cible - (actuel < 0 ? 0 : actuel) + 3) % 3;
+    const bouton = document.getElementById("ab-big");
+    for (let i = 0; i < clics; i++) bouton?.click();
+    setEasyModeLevelEtat(cible);
+  };
+  useEffect(() => {
+    const suivre = () => {
+      const n = NIVEAUX_BIG.indexOf(document.documentElement.dataset.abDensity || "normal");
+      setEasyModeLevelEtat(n < 0 ? 0 : n);
+    };
+    suivre();
+    const obs = new MutationObserver(suivre);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-ab-density"] });
+    return () => obs.disconnect();
+  }, []);
   const isEasyMode = easyModeLevel > 0;
 
   // Fullscreen state
@@ -982,9 +1023,7 @@ export default function App() {
   return (
     <div 
       dir={language === "ar" ? "rtl" : "ltr"}
-      className={`h-screen overflow-hidden flex flex-col relative transition-colors duration-300 ${getThemeContainerClasses()} ${
-        easyModeLevel === 2 ? "easy-mode easy-mode-max" : easyModeLevel === 1 ? "easy-mode" : ""
-      }`}
+      className={`h-[calc(100dvh_/_var(--ab-zoom,1)_-_var(--ab-hauteur,0px))] overflow-hidden flex flex-col relative transition-colors duration-300 ${getThemeContainerClasses()}`}
     >
       {/* Decorative colorful ambient background glows */}
       {isPro && (
@@ -1121,45 +1160,6 @@ export default function App() {
             )}
           </button>
 
-          {/* EASY / BIG MODE TOGGLE BUTTON (3 NIVEAUX: Standard, Big 1, Big 2 +35%) */}
-          <button
-            onClick={() => {
-              const nextLevel = (easyModeLevel + 1) % 3;
-              setEasyModeLevel(nextLevel);
-              localStorage.setItem("infoperso_easy_mode", String(nextLevel));
-              if (currentUser) {
-                saveUserProfileDebounced(currentUser.uid, {
-                  isEasyMode: nextLevel > 0,
-                  easyModeLevel: nextLevel
-                });
-              }
-              const labels = [
-                "Mode Texte Standard (Normal)",
-                "Mode Big 1 : Texte agrandi (+25%)",
-                "Mode Big 2 : Texte Maxi (+35% de plus !)"
-              ];
-              triggerToast(labels[nextLevel]);
-            }}
-            className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 landscape:py-0.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-              easyModeLevel === 2
-                ? "bg-amber-500 text-black border-amber-400 shadow-sm font-black"
-                : easyModeLevel === 1
-                  ? "bg-amber-100 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-900/40 font-bold"
-                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-850"
-            }`}
-            title={`Taille du texte : ${easyModeLevel === 0 ? "Standard" : easyModeLevel === 1 ? "Big 1 (+25%)" : "Big 2 Maxi (+35% de plus)"} - Cliquer pour changer (3 modes)`}
-          >
-            <span className="uppercase tracking-wider text-[11px]">
-              {easyModeLevel === 2 ? "big 2" : easyModeLevel === 1 ? "big 1" : "big"}
-            </span>
-            <span className="flex items-center gap-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${easyModeLevel >= 1 ? (easyModeLevel === 2 ? "bg-black" : "bg-emerald-500 animate-pulse") : "bg-zinc-400 dark:bg-zinc-600"}`} />
-              {easyModeLevel === 2 && (
-                <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
-              )}
-            </span>
-          </button>
-
           {/* MISTRAL API KEY & SOVEREIGN STATUS BUTTON */}
           <button
             onClick={() => setIsApiKeyModalOpen(true)}
@@ -1192,29 +1192,6 @@ export default function App() {
             <span className="hidden md:inline">{isFullscreen ? "Fermer" : "Plein Écran"}</span>
           </button>
 
-          {/* LIGHT / DARK THEME TOGGLE BUTTON */}
-          <button
-            onClick={() => {
-              const nextTheme = themeMode === "dark" ? "light" : "dark";
-              setThemeMode(nextTheme);
-              localStorage.setItem("infoperso_theme_mode", nextTheme);
-              triggerToast(`🌓 Mode ${nextTheme === "dark" ? "Sombre" : "Clair"} activé`);
-            }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all border text-xs font-bold bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-850"
-            title={themeMode === "dark" ? "Passer au mode clair" : "Passer au mode sombre"}
-          >
-            {themeMode === "dark" ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-500" />
-                <span className="hidden sm:inline">Jour</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
-                <span className="hidden sm:inline">Nuit</span>
-              </>
-            )}
-          </button>
         </div>
       </header>
 

@@ -57,57 +57,7 @@ export default function AlphabetteNavbar({
           : "bg-slate-100/95 border-slate-200 text-slate-700"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none">
-        {/* Bouquet Brand & Links */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <span className="font-black tracking-wider uppercase text-[10px] sm:text-xs text-indigo-400 flex items-center gap-1 mr-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse inline-block" />
-            Alphabette
-          </span>
-
-          {/* BOUTON DON & RIB MIS EN VALEUR (Demande Utilisateur) */}
-          <button
-            onClick={onOpenDonation}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-md text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer bg-gradient-to-r from-rose-500 via-pink-600 to-rose-600 hover:from-rose-600 hover:to-pink-700 text-white border border-rose-400/60 hover:scale-105 active:scale-95 shrink-0 mr-1 sm:mr-2"
-            title="Espace Dons & Soutien Financier : Virement SEPA instantané & RIB"
-          >
-            <Heart className="w-3 h-3 fill-white text-white animate-pulse" />
-            <span>DON</span>
-          </button>
-
-          <nav className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5">
-            {ALPHABETTE_APPS.map((app) => {
-              const isCurrent = app.id === activeApp || app.current;
-              return (
-                <button
-                  key={app.id}
-                  onClick={() => {
-                    if (!isCurrent) {
-                      onOpenPricing();
-                    }
-                  }}
-                  title={`${app.name} — ${app.subtitle} (Bouquet Alphabette 40 €/an)`}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all shrink-0 cursor-pointer ${
-                    isCurrent
-                      ? isDark
-                        ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 shadow-xs font-bold"
-                        : "bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold"
-                      : isDark
-                        ? "hover:bg-slate-900 text-zinc-400 hover:text-zinc-200"
-                        : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <span className="text-[12px]">{app.icon}</span>
-                  <span className="hidden md:inline">{app.name}</span>
-                  {isCurrent && (
-                    <span className="w-1 h-1 rounded-full bg-emerald-400 inline-block ml-0.5" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1 flex items-center justify-end gap-2 overflow-x-auto scrollbar-none">
         {/* Quota & Access Badge */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 text-[11px]">
           {quota.isSubscribed ? (
