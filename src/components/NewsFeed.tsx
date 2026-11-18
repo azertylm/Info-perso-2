@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
+import { useContextualFeedback } from "../labo-avis/useContextualFeedback";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -1997,6 +1998,21 @@ export default function NewsFeed({
       return null;
     }
   });
+
+  // Laboratoire alphabette.eu : micro-sondage « article lu » quand on referme un article lu au moins 20 s.
+  // Rien ne s'affiche hors d'alphabette.eu (voir src/labo-avis/).
+  const { declencher: sondageArticleLu, sondage: sondageArticle } = useContextualFeedback("article_lu", {
+    question: "Cet article vous a été utile ?",
+  });
+  const debutLecture = useRef<number | null>(null);
+  useEffect(() => {
+    if (selectedArticle) {
+      debutLecture.current = Date.now();
+    } else if (debutLecture.current !== null) {
+      if (Date.now() - debutLecture.current >= 20000) sondageArticleLu();
+      debutLecture.current = null;
+    }
+  }, [selectedArticle, sondageArticleLu]);
 
   const readerBodyRef = useRef<HTMLDivElement>(null);
   const [isListCollapsedInSplit, setIsListCollapsedInSplit] = useState<boolean>(false);
@@ -5189,6 +5205,7 @@ RÉPONDS STRICTEMENT AU FORMAT JSON avec ces clés :
 
   return (
     <div id="smart-news-feed" className="space-y-4 sm:space-y-6 landscape:space-y-3">
+      {sondageArticle}
       {/* 🚀 BARRE D'ACCÈS RAPIDE AUX ARTICLES & RÉGLAGES (ULTRA-COMPACT 50% REDUCED) */}
       <div
         className={`p-1.5 sm:p-2 rounded-xl border shadow-xs flex flex-col gap-1.5 ${
