@@ -170,16 +170,8 @@ export default function App() {
   // Guided Tour Modal (Onboarding for private users)
   const [isGuidedTourOpen, setIsGuidedTourOpen] = useState(false);
 
-  // Auto-launch guided tour for first-time private users
-  useEffect(() => {
-    const seen = localStorage.getItem("infoperso_guided_tour_seen");
-    if (!seen) {
-      const timer = setTimeout(() => {
-        setIsGuidedTourOpen(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+  // Plus de visite guidée imposée au démarrage (demande de Valentin, 18/11/2026) :
+  // on arrive directement sur les actualités. La visite reste disponible sur demande (bouton d'aide).
 
   // Listen for global quota modal and trousseau events
   useEffect(() => {
@@ -1081,7 +1073,7 @@ export default function App() {
       />
 
       {/* TOPBAR */}
-      <header className={`sticky top-0 z-40 transition-all duration-300 flex items-center justify-between ${
+      <header className={`ip-masquable sticky top-0 z-40 transition-all duration-300 flex items-center justify-between ${
         isSobre ? `${isDark ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"} border-b min-h-[44px] sm:min-h-[52px] landscape:min-h-[36px] py-1 sm:py-1.5 landscape:py-0.5 px-2 sm:px-4 landscape:px-2 shadow-xs` :
         isWarm ? `${isDark ? "bg-[#2c2622] border-[#443830]" : "bg-[#FAF6F0] border-amber-900/15"} border-b min-h-[44px] sm:min-h-[52px] landscape:min-h-[36px] py-1 sm:py-1.5 landscape:py-0.5 px-2 sm:px-4 landscape:px-2 shadow-xs` :
         isCyber ? `${isDark ? "bg-black border-cyan-500/30 shadow-[0_4px_12px_rgba(0,0,0,0.8)]" : "bg-[#f4fffe] border-[#0d9488]/30 shadow-md"} border-b min-h-[44px] sm:min-h-[52px] landscape:min-h-[36px] py-1 sm:py-1.5 landscape:py-0.5 px-2 sm:px-4 landscape:px-2` :

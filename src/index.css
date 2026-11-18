@@ -274,4 +274,26 @@ body {
   touch-action: pan-y !important;
 }
 
+/* Lecture plein écran : quand on descend dans le contenu, la double barre Alphabette remonte
+   (alphabette-barre.js, data-masquer="defilement") et les bandeaux du haut d'Info Perso aussi.
+   Ils reviennent dès qu'on remonte. */
+.ip-masquable {
+  max-height: 12rem;
+  transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease, margin 0.25s ease;
+}
+html[data-ab-barres="cachees"] .ip-masquable {
+  max-height: 0 !important;
+  min-height: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-width: 0 !important;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ip-masquable { transition: none; }
+}
 

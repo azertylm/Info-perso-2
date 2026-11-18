@@ -52,7 +52,7 @@ export default function AlphabetteNavbar({
 
   return (
     <div
-      className={`w-full border-b text-xs select-none transition-colors ${
+      className={`ip-masquable w-full border-b text-xs select-none transition-colors ${
         isDark
           ? "bg-slate-950/95 border-slate-800 text-zinc-300"
           : "bg-slate-100/95 border-slate-200 text-slate-700"
